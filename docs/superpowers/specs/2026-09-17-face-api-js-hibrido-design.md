@@ -89,8 +89,9 @@ Solo lo necesario para este alcance (subconjunto del modelo de datos completo de
 
 - `loadDetectionModel(): Promise<void>` — carga los pesos de `TinyFaceDetector` desde `/models`
   una sola vez (promesa cacheada, idempotente).
-- `detectFace(video: HTMLVideoElement): Promise<{ box: Box; score: number } | null>` — una
-  detección puntual sobre el frame actual del video.
+- `detectFace(video: HTMLVideoElement): Promise<boolean>` — una detección puntual sobre el frame
+  actual del video; solo indica si hay o no un rostro, ya que nada en este alcance consume el
+  bounding box ni el score.
 - Un hook `useFaceGuide` (usado por las páginas de kiosko y enrolamiento) corre esto en un loop de
   `requestAnimationFrame`, gobierna el estado visual del óvalo (esperando/detectando/listo) y, tras
   N frames estables, dibuja el frame en un canvas offscreen, lo exporta como `Blob` JPEG y lo sube.
