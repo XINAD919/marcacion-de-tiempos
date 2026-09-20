@@ -1,2 +1,3 @@
 allowBuilds:
   canvas: true
+  "@tensorflow/tfjs-node": true
