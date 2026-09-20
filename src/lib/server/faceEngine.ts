@@ -3,18 +3,24 @@ import "@tensorflow/tfjs-node";
 import { Canvas, Image, ImageData, loadImage } from "canvas";
 import * as faceapi from "face-api.js";
 
-faceapi.env.monkeyPatch({
-  Canvas: Canvas as unknown as typeof HTMLCanvasElement,
-  Image: Image as unknown as typeof HTMLImageElement,
-  ImageData: ImageData as unknown as typeof globalThis.ImageData,
-});
-
 const MODELS_PATH = path.join(process.cwd(), "public", "models");
 
 let modelsLoaded: Promise<void> | null = null;
 
 function loadModels(): Promise<void> {
   if (!modelsLoaded) {
+    // Must run lazily (inside loadModels, not at module top-level): monkeyPatch()
+    // calls face-api.js's isNodejs()/isBrowser() auto-detection the first time an
+    // environment isn't set, and that detection fails when Next's Turbopack build
+    // statically imports this module during "Collecting page data" (a build-worker
+    // context where require/module aren't plain CJS globals). Deferring it until a
+    // route handler actually calls getFaceDescriptor() means it only ever runs in a
+    // real Node.js request process, where isNodejs() correctly returns true.
+    faceapi.env.monkeyPatch({
+      Canvas: Canvas as unknown as typeof HTMLCanvasElement,
+      Image: Image as unknown as typeof HTMLImageElement,
+      ImageData: ImageData as unknown as typeof globalThis.ImageData,
+    });
     modelsLoaded = Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromDisk(MODELS_PATH),
       faceapi.nets.faceLandmark68Net.loadFromDisk(MODELS_PATH),
