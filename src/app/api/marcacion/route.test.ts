@@ -19,7 +19,7 @@ function buildRequest(photo: Buffer, deviceId: string): Request {
   return new Request("http://localhost/api/marcacion", { method: "POST", body: formData });
 }
 
-let userId: string;
+let userId = "";
 
 beforeAll(async () => {
   const enrollmentDescriptor = await getFaceDescriptor(await loadFixture("persona-a-2.jpg"));
@@ -45,10 +45,12 @@ beforeAll(async () => {
 }, 20000);
 
 afterEach(async () => {
+  if (!userId) return;
   await prisma.attendanceLog.deleteMany({ where: { userId } });
 });
 
 afterAll(async () => {
+  if (!userId) return;
   await prisma.faceEmbedding.deleteMany({ where: { userId } });
   await prisma.user.delete({ where: { id: userId } });
 });
