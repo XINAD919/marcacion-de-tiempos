@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(uuid())
+  cedula        String          @unique
+  nombre        String
+  email         String
+  universidad   String
+  entidad       String
+  activo        Boolean         @default(true)
+  fechaRegistro DateTime        @default(now())
+  embeddings    FaceEmbedding[]
+  attendance    AttendanceLog[]
+}
+
+model FaceEmbedding {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  embedding    Bytes
+  modelo       String
+  fechaCaptura DateTime @default(now())
+}
+
+model AttendanceLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tipo      String
+  metodo    String
+  confianza Float?
+  deviceId  String
+  marcadoEn DateTime @default(now())
+}

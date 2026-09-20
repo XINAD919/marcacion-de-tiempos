@@ -42,3 +42,4 @@ next-env.d.ts
 
 # superpowers SDD workspace (ledgers, briefs, review packages)
 .superpowers/
+!.env.example
