@@ -8,8 +8,14 @@ function getMatchThreshold(): number {
   return raw ? Number(raw) : DEFAULT_MATCH_THRESHOLD;
 }
 
-export function descriptorToBuffer(descriptor: Float32Array): Buffer {
-  return Buffer.from(descriptor.buffer, descriptor.byteOffset, descriptor.byteLength);
+export function descriptorToBuffer(descriptor: Float32Array): Buffer<ArrayBuffer> {
+  // Face descriptors are always plain Float32Arrays backed by a real ArrayBuffer at
+  // runtime (this project never uses worker_threads/SharedArrayBuffer). TypeScript's
+  // lib types only know Float32Array as generic over ArrayBufferLike (which includes
+  // SharedArrayBuffer), so Buffer.from() infers the wider Buffer<ArrayBufferLike> here.
+  // Prisma's generated type for the `embedding Bytes` column requires the concrete
+  // Buffer<ArrayBuffer> form, so we assert the narrower, always-true type.
+  return Buffer.from(descriptor.buffer, descriptor.byteOffset, descriptor.byteLength) as Buffer<ArrayBuffer>;
 }
 
 export function bufferToDescriptor(buffer: Buffer): Float32Array {

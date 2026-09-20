@@ -12,7 +12,11 @@ async function loadFixture(filename: string): Promise<Buffer> {
 
 function buildRequest(photo: Buffer): Request {
   const formData = new FormData();
-  formData.append("foto", new Blob([photo], { type: "image/jpeg" }), "foto.jpg");
+  // `photo` is always backed by a real ArrayBuffer (it comes from fs readFile / Buffer.from
+  // in this codebase, never a SharedArrayBuffer). TypeScript's declared `Buffer` type is
+  // generic over the wider ArrayBufferLike, but the DOM `BlobPart` type requires the
+  // concrete ArrayBuffer-backed form, so assert the narrower, always-true type here.
+  formData.append("foto", new Blob([photo as Buffer<ArrayBuffer>], { type: "image/jpeg" }), "foto.jpg");
   return new Request("http://localhost/api/usuarios/x/enrolar", { method: "POST", body: formData });
 }
 
