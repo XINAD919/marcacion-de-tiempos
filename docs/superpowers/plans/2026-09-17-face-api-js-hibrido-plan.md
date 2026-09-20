@@ -108,9 +108,13 @@ Run: `pnpm add -D vitest`
 
 Create `vitest.config.ts`:
 ```ts
+import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "./src") },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
@@ -118,7 +122,7 @@ export default defineConfig({
 });
 ```
 
-Every test in this plan exercises Node-side logic (matching math, model inference, Route Handlers) rather than rendering React components, so `environment: "node"` is used instead of the `jsdom` default shown in Next.js's own Vitest guide — this also avoids `jsdom`'s `Canvas`/`Image` globals colliding with the ones `node-canvas` installs for face-api.js.
+Every test in this plan exercises Node-side logic (matching math, model inference, Route Handlers) rather than rendering React components, so `environment: "node"` is used instead of the `jsdom` default shown in Next.js's own Vitest guide — this also avoids `jsdom`'s `Canvas`/`Image` globals colliding with the ones `node-canvas` installs for face-api.js. The `resolve.alias` entry is required, not optional: Tasks 8 and 9's Route Handlers and their tests import from `@/lib/server/...`, and unlike Next.js's own bundler, Vitest does not read `tsconfig.json`'s `paths` automatically — without this alias those imports fail to resolve under `vitest`.
 
 - [ ] **Step 3: Add test scripts to `package.json`**
 
@@ -148,7 +152,8 @@ git commit -m "Add Vitest test runner"
 - Create: `docker-compose.yml`
 - Create: `.env.example`
 - Create: `prisma/schema.prisma`
-- Modify: `package.json` (`prisma`, `@prisma/client`), `.gitignore` (ensure `.env` is ignored)
+- Create: `vitest.setup.ts`
+- Modify: `package.json` (`prisma`, `@prisma/client`), `.gitignore` (`.env*` already ignores `.env.example`, needs a negation), `vitest.config.ts` (load `.env` before tests run)
 
 - [ ] **Step 1: Install Prisma**
 
@@ -191,12 +196,30 @@ Copy it to a real `.env` and change both passwords to the same value:
 cp .env.example .env
 ```
 
-Confirm `.env` is git-ignored:
+`.gitignore` already has a blanket `.env*` rule, which also matches (and hides) `.env.example` — add a negation so the example file can still be committed:
 ```bash
-grep -qx '.env' .gitignore || echo '.env' >> .gitignore
+grep -qx '!.env.example' .gitignore || echo '!.env.example' >> .gitignore
 ```
 
-- [ ] **Step 4: Write the Prisma schema**
+- [ ] **Step 4: Make Vitest load `.env` before tests run**
+
+Tasks 8 and 9 add tests that hit the real database through Prisma, which reads `DATABASE_URL` from `process.env`. Node 20+ can load an env file natively — no `dotenv` dependency needed.
+
+Create `vitest.setup.ts`:
+```ts
+process.loadEnvFile(".env");
+```
+
+In `vitest.config.ts` (created in Task 3), add `setupFiles`:
+```ts
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+    setupFiles: ["./vitest.setup.ts"],
+  },
+```
+
+- [ ] **Step 5: Write the Prisma schema**
 
 Create `prisma/schema.prisma`:
 ```prisma
@@ -243,21 +266,26 @@ model AttendanceLog {
 }
 ```
 
-- [ ] **Step 5: Start the local database**
+- [ ] **Step 6: Start the local database**
 
 Run: `docker compose up -d db`
 Expected: container `medicion-tiempos-db-1` (or similar) reports `Started`. SQL Server inside the container takes ~15-30s to accept connections after that — the next step will simply fail and can be retried if run too early.
 
-- [ ] **Step 6: Run the first migration**
+- [ ] **Step 7: Run the first migration**
 
 Run: `pnpm exec prisma migrate dev --name init`
 Expected: `Your database is now in sync with your schema` and a generated `@prisma/client`. If it fails with a connection error, wait 15s and re-run — SQL Server is still starting up.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Verify Vitest now loads the environment (no test files yet, but the setup file must not error)**
+
+Run: `pnpm test`
+Expected: `No test files found` — same as Task 3's check, just confirming `vitest.setup.ts` didn't break the run now that `.env` exists.
+
+- [ ] **Step 9: Commit**
 
 ```bash
-git add package.json pnpm-lock.yaml docker-compose.yml .env.example .gitignore prisma
-git commit -m "Add Prisma schema and local SQL Server via Docker Compose"
+git add package.json pnpm-lock.yaml docker-compose.yml .env.example .gitignore prisma vitest.config.ts vitest.setup.ts
+git commit -m "Add Prisma schema, local SQL Server via Docker Compose, and env loading for tests"
 ```
 
 ---
