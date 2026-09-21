@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
@@ -43,3 +45,6 @@ next-env.d.ts
 # superpowers SDD workspace (ledgers, briefs, review packages)
 .superpowers/
 !.env.example
+
+# next.js --experimental-https local dev certificates
+/certificates/
