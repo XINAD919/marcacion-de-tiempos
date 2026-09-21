@@ -5,6 +5,7 @@ import {
   getFaceDescriptor,
 } from "@/lib/server/faceEngine";
 import { saveEnrollmentDescriptor } from "@/lib/server/faceMatcher";
+import { prisma } from "@/lib/server/prisma";
 
 const MODEL_VERSION = "face-api-recognition-v1";
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png"]);
@@ -15,6 +16,12 @@ export async function POST(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   const { userId } = await params;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
+
   const formData = await request.formData();
   const foto = formData.get("foto");
 
