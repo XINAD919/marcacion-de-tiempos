@@ -7,6 +7,8 @@ import {
 import { saveEnrollmentDescriptor } from "@/lib/server/faceMatcher";
 
 const MODEL_VERSION = "face-api-recognition-v1";
+const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png"]);
+const MAX_PHOTO_SIZE_BYTES = 2 * 1024 * 1024;
 
 export async function POST(
   request: Request,
@@ -18,6 +20,14 @@ export async function POST(
 
   if (!(foto instanceof Blob)) {
     return NextResponse.json({ error: "Falta la foto" }, { status: 400 });
+  }
+
+  if (!ALLOWED_PHOTO_TYPES.has(foto.type)) {
+    return NextResponse.json({ error: "Formato de imagen no soportado" }, { status: 400 });
+  }
+
+  if (foto.size > MAX_PHOTO_SIZE_BYTES) {
+    return NextResponse.json({ error: "La imagen es demasiado grande" }, { status: 400 });
   }
 
   const buffer = Buffer.from(await foto.arrayBuffer());
