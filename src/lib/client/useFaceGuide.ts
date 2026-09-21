@@ -11,18 +11,16 @@ export function useFaceGuide(videoRef: React.RefObject<HTMLVideoElement | null>)
   const stableFrameCount = useRef(0);
   const capturedRef = useRef(false);
 
-  const captureFrame = useCallback((video: HTMLVideoElement): Blob | null => {
+  const captureFrame = useCallback((video: HTMLVideoElement): Promise<Blob | null> => {
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
+    if (!ctx) return Promise.resolve(null);
     ctx.drawImage(video, 0, 0);
-    let result: Blob | null = null;
-    canvas.toBlob((blob) => {
-      result = blob;
-    }, "image/jpeg");
-    return result;
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg");
+    });
   }, []);
 
   useEffect(() => {

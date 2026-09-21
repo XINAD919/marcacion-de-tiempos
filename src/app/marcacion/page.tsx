@@ -19,22 +19,23 @@ export default function MarcacionPage() {
 
   useEffect(() => {
     if (!hasCaptured || !videoRef.current) return;
-    const blob = captureFrame(videoRef.current);
-    if (!blob) return;
+    captureFrame(videoRef.current).then((blob) => {
+      if (!blob) return;
 
-    const formData = new FormData();
-    formData.append("foto", blob, "foto.jpg");
-    formData.append("deviceId", "kiosko-1");
+      const formData = new FormData();
+      formData.append("foto", blob, "foto.jpg");
+      formData.append("deviceId", "kiosko-1");
 
-    fetch("/api/marcacion", { method: "POST", body: formData })
-      .then((response) => response.json())
-      .then((body) => {
-        if (body.error) {
-          setError(body.error);
-          return;
-        }
-        setFeedback(body);
-      });
+      fetch("/api/marcacion", { method: "POST", body: formData })
+        .then((response) => response.json())
+        .then((body) => {
+          if (body.error) {
+            setError(body.error);
+            return;
+          }
+          setFeedback(body);
+        });
+    });
   }, [hasCaptured, captureFrame]);
 
   return (

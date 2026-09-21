@@ -18,21 +18,22 @@ export default function EnrolarPage({ params }: { params: Promise<{ userId: stri
 
   useEffect(() => {
     if (!hasCaptured || !videoRef.current || capturas >= 5) return;
-    const blob = captureFrame(videoRef.current);
-    if (!blob) return;
+    captureFrame(videoRef.current).then((blob) => {
+      if (!blob) return;
 
-    const formData = new FormData();
-    formData.append("foto", blob, "foto.jpg");
+      const formData = new FormData();
+      formData.append("foto", blob, "foto.jpg");
 
-    fetch(`/api/usuarios/${userId}/enrolar`, { method: "POST", body: formData })
-      .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
-      .then(({ ok, body }) => {
-        if (!ok) {
-          setError(body.error);
-          return;
-        }
-        setCapturas((count) => count + 1);
-      });
+      fetch(`/api/usuarios/${userId}/enrolar`, { method: "POST", body: formData })
+        .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
+        .then(({ ok, body }) => {
+          if (!ok) {
+            setError(body.error);
+            return;
+          }
+          setCapturas((count) => count + 1);
+        });
+    });
   }, [hasCaptured, captureFrame, userId, capturas]);
 
   return (
