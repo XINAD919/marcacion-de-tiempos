@@ -27,6 +27,8 @@ model FaceEmbedding {
   embedding    Bytes
   modelo       String
   fechaCaptura DateTime @default(now())
+
+  @@index([userId])
 }
 
 model AttendanceLog {
@@ -38,4 +40,6 @@ model AttendanceLog {
   confianza Float?
   deviceId  String
   marcadoEn DateTime @default(now())
+
+  @@index([userId, marcadoEn])
 }
