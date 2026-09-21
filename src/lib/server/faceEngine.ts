@@ -9,13 +9,15 @@ let modelsLoaded: Promise<void> | null = null;
 
 function loadModels(): Promise<void> {
   if (!modelsLoaded) {
-    // Must run lazily (inside loadModels, not at module top-level): monkeyPatch()
-    // calls face-api.js's isNodejs()/isBrowser() auto-detection the first time an
-    // environment isn't set, and that detection fails when Next's Turbopack build
-    // statically imports this module during "Collecting page data" (a build-worker
-    // context where require/module aren't plain CJS globals). Deferring it until a
-    // route handler actually calls getFaceDescriptor() means it only ever runs in a
-    // real Node.js request process, where isNodejs() correctly returns true.
+    // monkeyPatch() only auto-detects an environment (via isNodejs()/isBrowser())
+    // if none is set yet. That detection checks for require/module as plain CJS
+    // globals, which isn't reliable under Turbopack — true both at build time
+    // ("Collecting page data" statically imports this module) and at real
+    // request-handling time (route handlers also run in a Turbopack-compiled
+    // module context). Rather than depend on that detection at all, set the
+    // Node environment explicitly first; monkeyPatch() then just overlays
+    // Canvas/Image/ImageData onto it without ever calling isNodejs().
+    faceapi.env.setEnv(faceapi.env.createNodejsEnv());
     faceapi.env.monkeyPatch({
       Canvas: Canvas as unknown as typeof HTMLCanvasElement,
       Image: Image as unknown as typeof HTMLImageElement,
