@@ -20,5 +20,14 @@ export default defineConfig({
     url: "https://localhost:3000",
     ignoreHTTPSErrors: true,
     reuseExistingServer: true,
+    // Without this, `next dev --experimental-https` shells out to
+    // `mkcert -install`, which tries to add the dev CA to the system-wide
+    // trust store and needs sudo. That fails non-interactively, and Next
+    // silently falls back to plain HTTP — which then makes this webServer's
+    // own https:// health check time out after 60s with no obvious cause.
+    // TRUST_STORES=nss tells mkcert to only install into the current
+    // user's NSS database (no root needed), which is what Chromium reads
+    // on Linux anyway.
+    env: { TRUST_STORES: "nss" },
   },
 });
