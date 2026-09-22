@@ -115,9 +115,17 @@ la *primera* cuenta, ya que el CRUD requiere estar autenticado.
 ### 2. `src/lib/server/auth.ts`
 
 Config de Auth.js: `CredentialsProvider` con `authorize(credentials)`, `session: { strategy: "jwt" }`,
-`pages: { signIn: "/login" }`, `callbacks.jwt` (copia `id`/`nombre` al token en el login),
-`callbacks.session` (expone `id`/`nombre` en `session.user`), `callbacks.authorized` (lógica de
-proxy descrita arriba). Exporta `{ handlers, auth, signIn, signOut }`.
+`pages: { signIn: "/login" }`, `callbacks.jwt` (copia `id` al token en el login), `callbacks.session`
+(expone `id` en `session.user`), `callbacks.authorized` (lógica de proxy descrita arriba). Exporta
+`{ handlers, auth, signIn, signOut }`.
+
+**`trustHost: true` es obligatorio.** Auth.js solo confía automáticamente en el header `Host` de la
+request en plataformas que reconoce (ej. Vercel); en cualquier otro despliegue self-hosted lo
+rechaza a menos que se declare explícito (`AuthConfig.trustHost`, ver
+`node_modules/.pnpm/@auth+core@*/node_modules/@auth/core/index.d.ts`). Este proyecto se despliega
+en un PC propio de la fundación detrás de un reverse proxy interno (`AGENTS.md`), no en una
+plataforma reconocida — sin este flag el login fallaría en el entorno real aunque funcione en
+`localhost`.
 
 ### 3. `src/app/api/auth/[...nextauth]/route.ts`
 
