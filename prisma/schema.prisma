@@ -20,6 +20,15 @@ model User {
   attendance    AttendanceLog[]
 }
 
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  nombre       String
+  passwordHash String
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+}
+
 model FaceEmbedding {
   id           String   @id @default(uuid())
   userId       String

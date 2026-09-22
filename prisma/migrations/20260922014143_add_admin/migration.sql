@@ -1,0 +1,28 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- CreateTable
+CREATE TABLE [dbo].[Admin] (
+    [id] NVARCHAR(1000) NOT NULL,
+    [email] NVARCHAR(1000) NOT NULL,
+    [nombre] NVARCHAR(1000) NOT NULL,
+    [passwordHash] NVARCHAR(1000) NOT NULL,
+    [activo] BIT NOT NULL CONSTRAINT [Admin_activo_df] DEFAULT 1,
+    [creadoEn] DATETIME2 NOT NULL CONSTRAINT [Admin_creadoEn_df] DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT [Admin_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [Admin_email_key] UNIQUE NONCLUSTERED ([email])
+);
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH
