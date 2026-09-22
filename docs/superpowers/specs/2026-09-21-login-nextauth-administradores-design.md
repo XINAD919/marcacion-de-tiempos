@@ -50,6 +50,13 @@ este proyecto.
   al último admin activo (evitaría bloquear el acceso a todo el sistema).
 - **Test runner:** Vitest, siguiendo el patrón ya usado en el proyecto (`route.test.ts` junto a
   cada route handler).
+- **UI con shadcn/ui + Tailwind, tema por defecto.** A partir de este spec, shadcn/ui queda como
+  estándar para componentes de formulario/tabla/UI en todo el proyecto (empezando por el login y
+  el CRUD de administradores). Se usa el tema neutro que trae `shadcn init` por defecto — **no**
+  se cablean los tokens de marca (`navy`/`red`/`Archivo`, etc.) de la sección "Imagen de marca y
+  sistema de diseño" de `AGENTS.md` todavía; eso queda para una sesión dedicada a brandear toda la
+  app de una vez (incluyendo las pantallas ya existentes de enrolamiento/marcación, que tampoco
+  los tienen hoy). Este spec no toca `globals.css` más allá de lo que `shadcn init` agrega.
 
 ## Arquitectura y flujo de datos
 
@@ -80,6 +87,12 @@ Request → proxy.ts (Auth.js: callbacks.authorized)
 ```
 
 ## Componentes y contratos
+
+### 0. Setup de shadcn/ui
+
+`npx shadcn@latest init` (tema por defecto, no personalizado) + `npx shadcn@latest add button
+input label card table dialog badge` (los componentes que usan el login y el CRUD de
+administradores). Esto crea `components.json` y `src/components/ui/*`.
 
 ### 1. Esquema Prisma (`prisma/schema.prisma`)
 
@@ -118,14 +131,18 @@ tener un solo lugar con la lista de rutas protegidas).
 
 ### 5. `src/app/login/page.tsx` + Server Action
 
-Formulario email/contraseña. La Server Action llama `signIn("credentials", ...)`, captura
+Formulario email/contraseña armado con componentes `shadcn/ui` (`Card`, `Input`, `Label`,
+`Button`, tema por defecto). La Server Action llama `signIn("credentials", ...)`, captura
 `CredentialsSignin` y devuelve `"Correo o contraseña incorrectos"` (español llano, sin excepción
 cruda — mismo patrón que ya usa `src/app/api/usuarios/[userId]/enrolar/route.ts`).
 
 ### 6. Módulo de administradores
 
-- `src/app/admin/administradores/page.tsx`: tabla (email, nombre, estado, fecha de alta) + acción
-  textual roja (`Inactivar` / `Reactivar`) + formulario de alta + acción de resetear contraseña.
+- `src/app/admin/administradores/page.tsx`: tabla (`Table` de shadcn/ui: email, nombre, estado,
+  fecha de alta) + acción textual (`Inactivar` / `Reactivar`, `Button variant="destructive"`
+  donde aplique) + `Dialog` con formulario de alta + acción de resetear contraseña. Tema por
+  defecto de shadcn — sin las píldoras/colores de marca de `AGENTS.md` todavía (ver decisión de
+  UI más arriba).
 - `src/app/api/administradores/route.ts`:
   - `GET`: lista todos los admins (nunca expone `passwordHash` — DTO explícito).
   - `POST`: crea admin (`email`, `nombre`, `password` inicial) → hashea con `bcryptjs`, valida
