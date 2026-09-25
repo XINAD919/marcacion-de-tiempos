@@ -10,6 +10,9 @@ describe("isPublicPath", () => {
     "/api/marcacion/",
     "/api/auth/callback/credentials",
     "/api/auth/session",
+    "/models",
+    "/models/tiny_face_detector_model-weights_manifest.json",
+    "/models/face_recognition_model-shard1",
   ])("trata %s como pública", (pathname) => {
     expect(isPublicPath(pathname)).toBe(true);
   });
@@ -23,6 +26,7 @@ describe("isPublicPath", () => {
     "/api/usuarios/abc-123/enrolar",
     "/api/administradores",
     "/loginfake",
+    "/modelsfake",
   ])("trata %s como protegida", (pathname) => {
     expect(isPublicPath(pathname)).toBe(false);
   });
