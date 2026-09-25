@@ -8,6 +8,10 @@ import { hashPassword } from "@/lib/server/passwords";
 
 const prisma = new PrismaClient();
 
+// El valor de ejemplo en .env.example — si alguien lo deja tal cual, el
+// primer admin quedaría con una contraseña públicamente conocida.
+const PLACEHOLDER_PASSWORD = "changeme";
+
 async function main() {
   const email = process.env.SEED_ADMIN_EMAIL;
   const password = process.env.SEED_ADMIN_PASSWORD;
@@ -16,6 +20,14 @@ async function main() {
   if (!email || !password || !nombre) {
     console.log(
       "SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD y SEED_ADMIN_NOMBRE son requeridos para crear el primer admin; omitiendo seed."
+    );
+    return;
+  }
+
+  if (password === PLACEHOLDER_PASSWORD) {
+    console.log(
+      `SEED_ADMIN_PASSWORD todavía tiene el valor de ejemplo ("${PLACEHOLDER_PASSWORD}"). ` +
+        "Definí una contraseña real en tu archivo .env antes de crear el primer admin; omitiendo seed."
     );
     return;
   }
