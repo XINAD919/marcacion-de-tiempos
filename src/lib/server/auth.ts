@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { authenticateAdmin } from "@/lib/server/adminCredentials";
 import { isPublicPath } from "@/lib/server/publicPaths";
+import { prisma } from "@/lib/server/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -19,12 +20,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // auto-trusts like Vercel) — without this, sign-in fails outside localhost.
   trustHost: true,
   callbacks: {
-    jwt({ token, user }) {
-      if (user) token.id = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        return token;
+      }
+
+      // No fresh `user` means this is a refresh of an already-issued token,
+      // not the initial sign-in. Re-check the admin is still active so a
+      // deactivated admin's existing session stops working on its next
+      // refresh instead of staying valid until the JWT naturally expires.
+      if (typeof token.id !== "string") return token;
+
+      const admin = await prisma.admin.findUnique({ where: { id: token.id } });
+      if (!admin || !admin.activo) {
+        delete token.id;
+        return token;
+      }
+
       return token;
     },
     session({ session, token }) {
-      if (session.user) session.user.id = token.id as string;
+      if (session.user && typeof token.id === "string") {
+        session.user.id = token.id;
+        return session;
+      }
+
+      // Token lost its id (admin deactivated/removed) — don't hand back a
+      // session that looks authenticated with a stale/missing user. The
+      // callback param type claims `session.user` is always present (an
+      // artifact of @auth/core's database + jwt strategy types being
+      // intersected instead of unioned), but `Session["user"]` is genuinely
+      // optional, so this is a safe escape hatch, not a real type violation.
+      session.user = undefined as unknown as typeof session.user;
       return session;
     },
     authorized({ request, auth }) {
