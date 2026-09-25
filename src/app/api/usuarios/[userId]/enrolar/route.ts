@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/server/auth";
 import {
   MultipleFacesDetectedError,
   NoFaceDetectedError,
@@ -15,6 +16,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+
   const { userId } = await params;
 
   const user = await prisma.user.findUnique({ where: { id: userId } });

@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/server/prisma";
+
+const auth = vi.fn();
+vi.mock("@/lib/server/auth", () => ({ auth: () => auth() }));
+
 import { POST } from "./route";
 
 const fixturesDir = path.join(process.cwd(), "test", "fixtures", "faces");
@@ -33,6 +37,21 @@ async function createTestUser(cedula: string) {
 }
 
 describe("POST /api/usuarios/[userId]/enrolar", () => {
+  beforeEach(() => {
+    auth.mockReset();
+    auth.mockResolvedValue({ user: { id: "test-admin" } });
+  });
+
+  it("responde 401 sin sesión", async () => {
+    auth.mockResolvedValue(null);
+
+    const response = await POST(buildRequest(await loadFixture("persona-a-1.jpg")), {
+      params: Promise.resolve({ userId: "cualquier-id" }),
+    });
+
+    expect(response.status).toBe(401);
+  });
+
   it(
     "guarda un embedding cuando la foto tiene exactamente un rostro",
     async () => {
