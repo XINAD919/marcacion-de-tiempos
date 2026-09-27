@@ -16,7 +16,7 @@ export default async function LoginPage({
 }) {
   const session = await auth();
   if (session?.user) {
-    redirect("/admin/configuracion");
+    redirect("/admin/usuarios");
   }
 
   const { error } = await searchParams;
@@ -29,7 +29,7 @@ export default async function LoginPage({
       await signIn("credentials", {
         email: formData.get("email"),
         password: formData.get("password"),
-        redirectTo: "/admin/configuracion",
+        redirectTo: "/admin/usuarios",
       });
     } catch (authError) {
       if (authError instanceof AuthError) {
