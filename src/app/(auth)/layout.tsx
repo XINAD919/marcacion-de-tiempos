@@ -3,7 +3,7 @@ import Image from "next/image";
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh bg-bone">
-      <aside className="flex w-[clamp(420px,32vw,560px)] flex-none flex-col bg-navy px-15 py-14">
+      <aside className="flex w-[clamp(420px,32vw,560px)] flex-none flex-col bg-navy px-[clamp(40px,3.1vw,60px)] py-14">
         <div className="flex items-center gap-3.5">
           <Image
             src="/logo-banco-alimentos.png"
@@ -17,7 +17,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         <div className="mt-auto">
-          <h1 className="text-[44px] leading-[1.08] font-bold tracking-[-0.03em] text-white">
+          {/* 44px en 1920; en 1366 el panel mide ~437px y el título partía en tres líneas. */}
+          <h1 className="text-[clamp(32px,2.3vw,44px)] leading-[1.08] font-bold tracking-[-0.03em] text-white">
             Control de tiempos
             <br />
             de practicantes
