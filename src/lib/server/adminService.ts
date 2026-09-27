@@ -78,7 +78,7 @@ export async function setAdminActivo(input: {
 
   if (!input.activo) {
     if (input.targetAdminId === input.currentAdminId) {
-      return { ok: false, status: 403, body: { error: "No podés inactivar tu propia cuenta" } };
+      return { ok: false, status: 403, body: { error: "No puedes inactivar tu propia cuenta" } };
     }
 
     const activos = await prisma.admin.count({ where: { activo: true } });

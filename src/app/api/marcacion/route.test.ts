@@ -78,8 +78,12 @@ afterEach(async () => {
 
 afterAll(async () => {
   if (savedConfig) {
-    const { id: _id, actualizadoEn: _en, ...values } = savedConfig;
-    await prisma.configuracion.update({ where: { id: 1 }, data: values });
+    const { toleranciaLlegadaMin, minMinutosAntesSalida, exigenciaReconocimiento, intentosAntesQr, jornadaMaximaHoras, actualizadoPor } =
+      savedConfig;
+    await prisma.configuracion.update({
+      where: { id: 1 },
+      data: { toleranciaLlegadaMin, minMinutosAntesSalida, exigenciaReconocimiento, intentosAntesQr, jornadaMaximaHoras, actualizadoPor },
+    });
   } else {
     await prisma.configuracion.deleteMany({ where: { id: 1 } });
   }

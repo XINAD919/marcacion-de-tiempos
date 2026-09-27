@@ -1,14 +1,6 @@
 import Image from "next/image";
+import { initials } from "@/lib/initials";
 import { SidebarNav } from "./sidebar-nav";
-
-function initials(nombre: string): string {
-  return nombre
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]!.toUpperCase())
-    .join("");
-}
 
 interface SidebarProps {
   nombre: string;
