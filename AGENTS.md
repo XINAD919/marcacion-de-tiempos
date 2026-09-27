@@ -247,6 +247,12 @@ Escala por contexto:
 - El fallo ofrece el QR del carnet **en la misma pantalla**, con reintento automático y cuenta
   regresiva visible. Nadie queda atrapado ni debe pedir ayuda para volver al estado inicial.
 - Vuelve solo al estado de espera (~3 s). Cero interacción táctil o de teclado requerida.
+- **Unidades (implementación):** las maquetas del kiosko usan un lienzo de 1280×720. Dentro de
+  `.kiosko-canvas`, `--u` es un píxel de ese lienzo escalado a la pantalla y `--spacing` vale
+  `--u`, así que `p-36`, `gap-52` o `w-340` son medidas de maqueta; `ktext-46` hace lo mismo con
+  la letra. No usar `px` fijos dentro del kiosko.
+- El estado del kiosko vive en `src/app/marcacion/kiosko.tsx` con estado local de React; no se
+  necesitó Zustand (un solo componente dueño del flujo).
 
 ### Accesibilidad y resoluciones
 
@@ -272,6 +278,9 @@ Escala por contexto:
 - [ ] Diseño de la corrección manual de marcaciones (olvidadas o erradas) por parte de la coordinadora
 - [ ] Formulario de crear/editar usuario y vista de detalle con historial del practicante
 - [x] Brandear la app con el tema de shadcn/ui (tokens cableados en `globals.css`)
+- [ ] QR del carnet como respaldo en el kiosko (maqueta 1e): definir lector (USB tipo teclado vs.
+      cámara), qué codifica el QR y dónde se guarda; hoy la pantalla de fallo remite a coordinación
+- [ ] Identificador por kiosko (`deviceId` hoy fijo en `kiosko-1`), ligado a Entidades y sedes (4f)
 
 ## Preferencias de desarrollo
 
