@@ -1,6 +1,6 @@
 "use client";
 
-import { firstName, formatClock, formatDuration, formatLongDate } from "@/lib/client/kioskoFormat";
+import { firstName, formatClock, formatDuration, formatLateness, formatLongDate } from "@/lib/client/kioskoFormat";
 import { cn } from "@/lib/utils";
 import type { FailureReason, MarcacionResult } from "@/lib/client/marcacionResult";
 import type { FailureInfo } from "../kiosko";
@@ -51,7 +51,7 @@ export function EntradaScreen({ result, photoUrl, deadline }: ScreenProps & { re
             {/* Ámbar = advertencia: la entrada sí quedó registrada, solo que tarde. */}
             {result.tardeMin !== null && (
               <p className="ktext-20 rounded-full bg-brand-amber px-22 py-10 font-bold tracking-[0.06em] text-navy">
-                LLEGADA TARDE · {formatDuration(result.tardeMin * 60_000).toUpperCase()}
+                LLEGADA TARDE · {formatLateness(result.tardeMin)}
               </p>
             )}
           </div>
@@ -154,11 +154,11 @@ export function SalidaAnticipadaScreen({ result, deadline }: { result: SalidaAnt
             {firstName(result.nombre)}, tu entrada fue a las {entrada.time} {entrada.period}
           </p>
           <p className="ktext-26 mt-18 max-w-[36ch] leading-[1.45] font-medium">
+            {/* Sin punto final: "p. m." ya termina en punto. */}
             La salida se puede marcar desde las{" "}
             <span className="font-extrabold tabular-nums">
               {desde.time} {desde.period}
             </span>
-            .
           </p>
           <p className="ktext-22 mt-28 max-w-[44ch] border-t border-navy/25 pt-20 leading-[1.45]">
             Si necesitas salir antes, habla con coordinación para que registren tu salida

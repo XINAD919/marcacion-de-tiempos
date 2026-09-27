@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstName, formatClock, formatDuration, formatLongDate } from "./kioskoFormat";
+import { firstName, formatClock, formatDuration, formatLateness, formatLongDate } from "./kioskoFormat";
 
 describe("formatClock", () => {
   it("separa la hora en 12 h de su periodo, como en la maqueta 1c", () => {
@@ -43,5 +43,13 @@ describe("firstName", () => {
   it("toma el primer nombre para el saludo", () => {
     expect(firstName("Laura Catalina Rodríguez")).toBe("Laura");
     expect(firstName("  Andrés  ")).toBe("Andrés");
+  });
+});
+
+describe("formatLateness", () => {
+  it("escribe los minutos completos para que se lea a distancia", () => {
+    expect(formatLateness(12)).toBe("12 MIN");
+    expect(formatLateness(75)).toBe("1 H 15 MIN");
+    expect(formatLateness(120)).toBe("2 H");
   });
 });

@@ -44,3 +44,11 @@ export function formatDuration(ms: number): string {
 export function firstName(nombre: string): string {
   return nombre.trim().split(/\s+/)[0] ?? "";
 }
+
+/** "12 MIN", "1 H 15 MIN": la píldora de llegada tarde se lee a distancia, sin "12 M" ambiguo. */
+export function formatLateness(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} MIN`;
+  return rest === 0 ? `${hours} H` : `${hours} H ${rest} MIN`;
+}
