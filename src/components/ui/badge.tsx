@@ -18,6 +18,10 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // Píldoras de estado de la marca (AGENTS.md › Patrones de UI).
+        activo: "h-6 px-3 text-[12.5px] font-semibold bg-[#e3f1e9] text-brand-green-ink",
+        inactivo: "h-6 px-3 text-[12.5px] font-semibold bg-[#f0ece5] text-navy/60",
+        "sin-rostro": "h-6 px-3 text-[12.5px] font-semibold bg-[#fbeedd] text-brand-amber-ink",
       },
     },
     defaultVariants: {

@@ -39,6 +39,21 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-navy: var(--navy);
+  --color-navy-2: var(--navy-2);
+  --color-navy-3: var(--navy-3);
+  --color-brand-red: var(--brand-red);
+  --color-brand-red-ink: var(--brand-red-ink);
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-ink: var(--brand-green-ink);
+  --color-brand-amber: var(--brand-amber);
+  --color-brand-amber-ink: var(--brand-amber-ink);
+  --color-bone: var(--bone);
+  --color-bone-2: var(--bone-2);
+  --color-row-alt: var(--row-alt);
+  --color-track: var(--track);
+  --animate-scanpulse: scanpulse 2.4s ease-in-out infinite;
+  --animate-scanpulse-fast: scanpulse 1s ease-in-out infinite;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,73 +63,60 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Tokens de marca (AGENTS.md › Imagen de marca y sistema de diseño).
+ * Los nombres semánticos de shadcn apuntan a estos valores para que los
+ * componentes de ui/ hereden la marca sin tocarlos uno por uno.
+ */
 :root {
-  --background: oklch(96.731% 0.00686 88.609);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(24.365% 0.06118 267.128);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(100% 0.00011 271.152);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  --navy: #131e3d;
+  --navy-2: #1b2a52;
+  --navy-3: #0f1831;
+  --brand-red: #cf1f2e;
+  --brand-red-ink: #a5141f;
+  --brand-green: #1f7a4d;
+  --brand-green-ink: #14603a;
+  --brand-amber: #d98c1f;
+  --brand-amber-ink: #8a5510;
+  --bone: #f6f4ef;
+  --bone-2: #f1eee8;
+  --row-alt: #fbfaf7;
+  --track: #eceae4;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(24.365% 0.06118 267.128);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: var(--bone);
+  --foreground: var(--navy);
+  --card: #ffffff;
+  --card-foreground: var(--navy);
+  --popover: #ffffff;
+  --popover-foreground: var(--navy);
+  --primary: var(--brand-red);
+  --primary-foreground: #ffffff;
+  --secondary: var(--bone-2);
+  --secondary-foreground: var(--navy);
+  --muted: var(--bone-2);
+  /* .7 y no .55: sobre blanco es el menor valor que mantiene 4.5:1 (AA). */
+  --muted-foreground: rgb(19 30 61 / 0.7);
+  --accent: var(--bone-2);
+  --accent-foreground: var(--navy);
+  --destructive: var(--brand-red-ink);
+  --border: rgb(19 30 61 / 0.12);
+  --input: rgb(19 30 61 / 0.18);
+  --ring: var(--navy);
+  --chart-1: var(--brand-green);
+  --chart-2: var(--brand-amber);
+  --chart-3: var(--brand-red);
+  --chart-4: var(--navy-2);
+  --chart-5: var(--navy);
+  /* 6 px en controles; radius-xl (≈8 px) y 2xl (≈11 px) cubren tarjetas y modales. */
+  --radius: 0.375rem;
+  --sidebar: var(--navy);
+  --sidebar-foreground: rgb(255 255 255 / 0.72);
+  --sidebar-primary: var(--brand-red);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--navy-2);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.12);
+  --sidebar-ring: rgb(255 255 255 / 0.5);
 }
 
 @layer base {
@@ -127,5 +129,22 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@keyframes scanpulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scanpulse,
+  .animate-scanpulse-fast {
+    animation: none;
   }
 }

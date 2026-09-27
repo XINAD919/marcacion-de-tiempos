@@ -46,9 +46,12 @@ reconocimiento facial falla.
 
 - **Frontend/Backend:** Next.js (App Router), TypeScript
 - **Componentes UI:** shadcn/ui + Tailwind CSS (estándar desde el módulo de login/administradores).
-  Por ahora se usa el tema por defecto de shadcn (sin cablear los tokens de marca de la sección
-  "Imagen de marca y sistema de diseño" de este archivo); eso queda para una sesión dedicada a
-  brandear toda la app de una vez, incluidas las pantallas que ya existen.
+  Los tokens de "Imagen de marca y sistema de diseño" están cableados en `src/app/globals.css`:
+  las variables semánticas de shadcn (`--primary`, `--border`, `--sidebar`…) apuntan a ellos, y
+  además existen utilidades directas (`bg-navy`, `text-brand-red-ink`, `bg-brand-green`,
+  `bg-bone-2`, `bg-row-alt`, `animate-scanpulse`…). Usar esas utilidades, nunca hex sueltos.
+  `Badge` trae las variantes `activo` / `inactivo` / `sin-rostro` y `Button` la variante `success`
+  (exportar). No hay modo oscuro: la marca no lo define.
 - **Manejo de estado:** Zustand
 - **Base de datos:** SQL Server
 - **Reconocimiento facial:** por definir entre `face-api.js` (100% cliente, sin backend adicional,
@@ -268,9 +271,7 @@ Escala por contexto:
 - [ ] Logo oficial en vectorial (SVG) — las maquetas usan una marca de posición
 - [ ] Diseño de la corrección manual de marcaciones (olvidadas o erradas) por parte de la coordinadora
 - [ ] Formulario de crear/editar usuario y vista de detalle con historial del practicante
-- [ ] Brandear la app con el tema de shadcn/ui (cablear los tokens de "Imagen de marca y sistema
-      de diseño" al theme de Tailwind/shadcn) — sesión dedicada aparte, cubre también pantallas ya
-      existentes
+- [x] Brandear la app con el tema de shadcn/ui (tokens cableados en `globals.css`)
 
 ## Preferencias de desarrollo
 

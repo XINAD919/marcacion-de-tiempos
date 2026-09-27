@@ -139,7 +139,7 @@ export function AdminTable({ administradores }: { administradores: AdminDTO[] })
               <TableCell>{admin.nombre}</TableCell>
               <TableCell>{admin.email}</TableCell>
               <TableCell>
-                <Badge variant={admin.activo ? "default" : "secondary"}>
+                <Badge variant={admin.activo ? "activo" : "inactivo"}>
                   {admin.activo ? "Activo" : "Inactivo"}
                 </Badge>
               </TableCell>
