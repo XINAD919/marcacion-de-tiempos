@@ -92,7 +92,11 @@ export function AdminTable({ administradores }: { administradores: AdminDTO[] })
 
   return (
     <div className="flex flex-col gap-4">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm font-semibold text-brand-red-ink">
+          {error}
+        </p>
+      )}
 
       <div className="flex justify-end">
         <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
@@ -124,37 +128,41 @@ export function AdminTable({ administradores }: { administradores: AdminDTO[] })
         </Dialog>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead>Correo</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {administradores.map((admin) => (
-            <TableRow key={admin.id}>
-              <TableCell>{admin.nombre}</TableCell>
-              <TableCell>{admin.email}</TableCell>
-              <TableCell>
-                <Badge variant={admin.activo ? "activo" : "inactivo"}>
-                  {admin.activo ? "Activo" : "Inactivo"}
-                </Badge>
-              </TableCell>
-              <TableCell className="flex justify-end gap-4">
-                <Button variant="link" onClick={() => cambiarActivo(admin.id, !admin.activo)}>
-                  {admin.activo ? "Inactivar" : "Reactivar"}
-                </Button>
-                <Button variant="link" onClick={() => setResetTarget(admin)}>
-                  Restablecer contraseña
-                </Button>
-              </TableCell>
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Correo</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {administradores.map((admin) => (
+              <TableRow key={admin.id}>
+                <TableCell className="font-medium">{admin.nombre}</TableCell>
+                <TableCell>{admin.email}</TableCell>
+                <TableCell>
+                  <Badge variant={admin.activo ? "activo" : "inactivo"}>
+                    {admin.activo ? "Activo" : "Inactivo"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-5">
+                    <Button variant="link" onClick={() => cambiarActivo(admin.id, !admin.activo)}>
+                      {admin.activo ? "Inactivar" : "Reactivar"}
+                    </Button>
+                    <Button variant="link" onClick={() => setResetTarget(admin)}>
+                      Restablecer contraseña
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       <Dialog open={resetTarget !== null} onOpenChange={(open) => !open && setResetTarget(null)}>
         <DialogContent>

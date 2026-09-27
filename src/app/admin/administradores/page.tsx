@@ -1,13 +1,23 @@
+import type { Metadata } from "next";
+import { PageHeader } from "@/components/admin/page-header";
 import { listAdmins } from "@/lib/server/adminService";
 import { AdminTable } from "./admin-table";
 
+export const metadata: Metadata = { title: "Administradores" };
+
 export default async function AdministradoresPage() {
   const administradores = await listAdmins();
+  const activos = administradores.filter((admin) => admin.activo).length;
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
-      <h1 className="mb-6 text-2xl font-semibold">Administradores</h1>
-      <AdminTable administradores={administradores} />
-    </div>
+    <>
+      <PageHeader
+        title="Administradores"
+        description={`${administradores.length} registrados · ${activos} activos · ${administradores.length - activos} inactivos`}
+      />
+      <div className="p-8">
+        <AdminTable administradores={administradores} />
+      </div>
+    </>
   );
 }

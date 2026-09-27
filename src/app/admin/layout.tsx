@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Sidebar } from "@/components/admin/sidebar";
 import { auth, signOut } from "@/lib/server/auth";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -14,16 +14,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b p-4">
-        <span className="text-sm font-medium">{session.user.name}</span>
-        <form action={logout}>
-          <Button type="submit" variant="outline" size="sm">
-            Cerrar sesión
-          </Button>
-        </form>
-      </header>
-      <main className="flex-1">{children}</main>
+    <div className="flex min-h-dvh bg-bone">
+      <Sidebar
+        nombre={session.user.name ?? "Administrador"}
+        email={session.user.email ?? ""}
+        logoutAction={logout}
+      />
+      <main className="flex min-w-0 flex-1 flex-col">{children}</main>
     </div>
   );
 }
