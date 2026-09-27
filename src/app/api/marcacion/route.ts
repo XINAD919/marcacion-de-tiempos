@@ -6,6 +6,7 @@ import {
 } from "@/lib/server/faceEngine";
 import { findMatch } from "@/lib/server/faceMatcher";
 import { prisma } from "@/lib/server/prisma";
+import { sumWorkedMs } from "@/lib/server/workedTime";
 
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png"]);
 const MAX_PHOTO_SIZE_BYTES = 2 * 1024 * 1024;
@@ -77,5 +78,30 @@ export async function POST(request: Request) {
     `[marcacion] Coincidencia: userId=${user.id} distance=${match.distance} deviceId=${deviceId}`
   );
 
-  return NextResponse.json({ matched: true, nombre: user.nombre, hora: log.marcadoEn.toISOString(), tipo });
+  const base = {
+    matched: true,
+    nombre: user.nombre,
+    universidad: user.universidad,
+    entidad: user.entidad,
+    hora: log.marcadoEn.toISOString(),
+    tipo,
+  };
+
+  if (tipo === "IN") {
+    return NextResponse.json(base);
+  }
+
+  // La salida muestra en el kiosko la jornada del día y las horas acumuladas;
+  // ambas se derivan de los registros, nunca de un campo guardado.
+  const marks = await prisma.attendanceLog.findMany({
+    where: { userId: user.id },
+    select: { tipo: true, marcadoEn: true },
+  });
+  const today = startOfToday();
+
+  return NextResponse.json({
+    ...base,
+    jornadaMs: sumWorkedMs(marks.filter((mark) => mark.marcadoEn >= today)),
+    acumuladoMs: sumWorkedMs(marks),
+  });
 }

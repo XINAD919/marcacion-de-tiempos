@@ -74,6 +74,57 @@ describe("POST /api/marcacion", () => {
   );
 
   it(
+    "incluye universidad y entidad para la pantalla de éxito del kiosko",
+    async () => {
+      const response = await POST(buildRequest(await loadFixture("persona-a-1.jpg"), "kiosko-test"));
+      const body = await response.json();
+
+      expect(body.universidad).toBe("Universidad de Prueba");
+      expect(body.entidad).toBe("Entidad de Prueba");
+    },
+    20000
+  );
+
+  it(
+    "en la SALIDA devuelve la jornada de hoy y las horas acumuladas",
+    async () => {
+      const ahora = new Date();
+      const inicioDeHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+      // Hace 2 h, pero nunca antes de medianoche: si no, la entrada caería
+      // en el día anterior y la marcación sería otra ENTRADA.
+      const entradaHoy = new Date(Math.max(ahora.getTime() - 2 * 60 * 60 * 1000, inicioDeHoy.getTime()));
+      const jornadaEsperada = ahora.getTime() - entradaHoy.getTime();
+      const ayer = new Date(inicioDeHoy.getTime() - 12 * 60 * 60 * 1000);
+      await prisma.attendanceLog.createMany({
+        data: [
+          // Jornada completa de ayer: 3 h que solo cuentan en el acumulado.
+          { userId, tipo: "IN", metodo: "face", deviceId: "kiosko-test", marcadoEn: ayer },
+          {
+            userId,
+            tipo: "OUT",
+            metodo: "face",
+            deviceId: "kiosko-test",
+            marcadoEn: new Date(ayer.getTime() + 3 * 60 * 60 * 1000),
+          },
+          // Entrada de hoy, todavía abierta.
+          { userId, tipo: "IN", metodo: "face", deviceId: "kiosko-test", marcadoEn: entradaHoy },
+        ],
+      });
+
+      const response = await POST(buildRequest(await loadFixture("persona-a-1.jpg"), "kiosko-test"));
+      const body = await response.json();
+
+      expect(body.tipo).toBe("OUT");
+      const tresHoras = 3 * 60 * 60 * 1000;
+      expect(body.jornadaMs).toBeGreaterThanOrEqual(jornadaEsperada);
+      expect(body.jornadaMs).toBeLessThan(jornadaEsperada + 60_000);
+      expect(body.acumuladoMs).toBeGreaterThanOrEqual(jornadaEsperada + tresHoras);
+      expect(body.acumuladoMs).toBeLessThan(jornadaEsperada + tresHoras + 60_000);
+    },
+    20000
+  );
+
+  it(
     "responde matched:false para un rostro no enrolado",
     async () => {
       const response = await POST(buildRequest(await loadFixture("persona-b-1.jpg"), "kiosko-test"));
