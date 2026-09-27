@@ -9,6 +9,8 @@ const FRAMES_REQUIRED_TO_CAPTURE = 8;
 export function useFaceGuide(videoRef: React.RefObject<HTMLVideoElement | null>) {
   const [state, setState] = useState<GuideState>("esperando");
   const [error, setError] = useState<string | null>(null);
+  // 0–1: fracción de cuadros estables reunidos antes de capturar (barra de 1b).
+  const [progress, setProgress] = useState(0);
   const stableFrameCount = useRef(0);
   const capturedRef = useRef(false);
 
@@ -16,6 +18,7 @@ export function useFaceGuide(videoRef: React.RefObject<HTMLVideoElement | null>)
     capturedRef.current = false;
     stableFrameCount.current = 0;
     setState("esperando");
+    setProgress(0);
   }, []);
 
   const captureFrame = useCallback((video: HTMLVideoElement): Promise<Blob | null> => {
@@ -57,6 +60,7 @@ export function useFaceGuide(videoRef: React.RefObject<HTMLVideoElement | null>)
 
             stableFrameCount.current = result.nextStableFrameCount;
             setState(result.nextState);
+            setProgress(Math.min(1, result.nextStableFrameCount / FRAMES_REQUIRED_TO_CAPTURE));
 
             if (result.shouldCapture) {
               capturedRef.current = true;
@@ -85,5 +89,5 @@ export function useFaceGuide(videoRef: React.RefObject<HTMLVideoElement | null>)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoRef]);
 
-  return { state, error, captureFrame, hasCaptured: capturedRef.current, reset };
+  return { state, error, progress, captureFrame, hasCaptured: capturedRef.current, reset };
 }

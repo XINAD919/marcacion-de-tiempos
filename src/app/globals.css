@@ -148,3 +148,19 @@
     animation: none;
   }
 }
+
+/*
+ * Kiosko: las maquetas 1a–1e están dibujadas en un lienzo de 1280×720.
+ * `--u` es un píxel de ese lienzo escalado a la pantalla real (1.5px en
+ * 1920×1080, ~1.07px en 1366×768) y `--spacing` se redefine con él, así que
+ * dentro del kiosko p-36, gap-52 o w-340 usan tal cual las medidas de la
+ * maqueta. `ktext-46` hace lo mismo con el tamaño de letra.
+ */
+@utility kiosko-canvas {
+  --u: min(100vw / 1280, 100dvh / 720);
+  --spacing: var(--u);
+}
+
+@utility ktext-* {
+  font-size: calc(--value(number) * var(--u));
+}
