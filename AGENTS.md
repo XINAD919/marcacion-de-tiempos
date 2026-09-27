@@ -58,7 +58,10 @@ reconocimiento facial falla.
   MVP recomendado para el alcance de la práctica) o InsightFace/ArcFace vía microservicio FastAPI
   (mayor precisión, camino de evolución a futuro)
 - **Autenticación (admin):** NextAuth.js
-- **Importación de datos:** SheetJS (`xlsx`) para migración e importación desde Excel
+- **Importación de datos:** SheetJS (`xlsx`) para migración e importación desde Excel. Se instala
+  desde el CDN oficial (`https://cdn.sheetjs.com/xlsx-0.20.3/...`), no desde npm: la versión de
+  npm quedó en 0.18.5 con vulnerabilidades conocidas. Los CSV se decodifican a mano (UTF-8 o
+  Windows-1252) antes de pasarlos a SheetJS; ver `src/lib/server/excel.ts`.
 - **Despliegue:** reverse proxy con HTTPS interno (certificado propio vía CA local, ej. `mkcert`)
   dentro de la red de la fundación — requisito crítico, ver sección de arquitectura
 
@@ -138,12 +141,33 @@ src/
 
 ## Modelo de datos (borrador, SQL Server)
 
-- `users`: id, cedula, nombre, email, universidad, entidad, horas_requeridas, activo, fecha_registro
+- `users`: id, cedula, nombre, email (opcional), universidad, entidad, horas_requeridas,
+  fecha_inicio (DATE), hora_inicio / hora_fin ("HH:mm", horario asignado), activo, fecha_registro
 - `face_embeddings`: id, user_id (FK), embedding (VARBINARY), modelo, fecha_captura
 - `attendance_logs`: id, user_id (FK), tipo (IN/OUT), metodo (face/qr), confianza, device_id, marcado_en
+- `configuracion`: una sola fila (id = 1) con las reglas de la maqueta 4g — tolerancia de llegada,
+  tiempo mínimo antes de la salida, exigencia del reconocimiento, intentos antes del respaldo y
+  jornada máxima por día. Sin fila se usan los valores por defecto de `src/lib/configRules.ts`.
 
 Las horas cumplidas se calculan a partir de `attendance_logs` (pares IN/OUT), no se guardan como
-campo persistente, para evitar inconsistencias.
+campo persistente, para evitar inconsistencias. Lo mismo la llegada tarde: se deriva del horario
+asignado y la tolerancia, nunca se guarda.
+
+`fecha_inicio` es una columna DATE: Prisma la maneja como medianoche UTC. Guardar con
+`Date.UTC(...)` y mostrar con getters UTC (`dbDateToIso`) para que no se corra un día.
+
+### Reglas de marcación (configurables en 4g)
+
+- **Exigencia del reconocimiento** → umbral de distancia facial: flexible 0.55 · equilibrado 0.5 ·
+  estricto 0.45. Reemplaza a la antigua variable `FACE_MATCH_THRESHOLD`.
+- **Tiempo mínimo antes de la salida:** si alguien intenta marcar salida antes de ese tiempo desde
+  su entrada del día, **no se registra nada** y el kiosko le pide hablar con coordinación para que
+  registre la salida manualmente. Evita pares entrada/salida instantáneos.
+- **Tolerancia de llegada:** minutos tras `hora_inicio` antes de contar como llegada tarde. La
+  entrada sí se registra; el kiosko muestra una píldora ámbar.
+- **Intentos antes del respaldo:** fallos seguidos en un kiosko (se reinicia tras 2 min o con un
+  reconocimiento) antes de remitir a coordinación / QR.
+- **Jornada máxima por día:** tope de lo que suma cada día en `sumWorkedMs`.
 
 ## Imagen de marca y sistema de diseño
 
@@ -275,8 +299,15 @@ Escala por contexto:
 - [ ] Política de eliminación vs. inactivación de usuarios en el módulo de administración
 - [ ] Duración/fecha límite formal de la práctica, para el objetivo SMART del proyecto
 - [ ] Logo oficial en vectorial (SVG) — las maquetas usan una marca de posición
-- [ ] Diseño de la corrección manual de marcaciones (olvidadas o erradas) por parte de la coordinadora
-- [ ] Formulario de crear/editar usuario y vista de detalle con historial del practicante
+- [ ] Implementar la corrección manual de marcaciones (maqueta 4e): la necesitan la salida
+      anticipada y las salidas olvidadas, que hoy remiten a coordinación
+- [x] Formulario de crear/editar usuario (4c), listado (2a), importación (2b) y enrolamiento (2c)
+- [ ] Vista de detalle del practicante con historial (maqueta 4d)
+- [ ] Roles de administradores (coordinación / apoyo / consulta, maqueta 4g) — confirmar con la
+      cliente; hoy todo administrador puede todo
+- [ ] Catálogo de Entidades y sedes (4f): hoy universidad y entidad son texto libre con
+      autocompletado, y la importación no valida "Entidad no existe"
+- [ ] "Cierre automático sin salida" (4g): hoy una entrada sin salida queda pendiente y no suma
 - [x] Brandear la app con el tema de shadcn/ui (tokens cableados en `globals.css`)
 - [ ] QR del carnet como respaldo en el kiosko (maqueta 1e): definir lector (USB tipo teclado vs.
       cámara), qué codifica el QR y dónde se guarda; hoy la pantalla de fallo remite a coordinación
