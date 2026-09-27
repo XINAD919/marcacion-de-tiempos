@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type FailureStreak, registerFailure } from "@/lib/client/failureStreak";
 import { type MarcacionResult, interpretMarcacionResponse } from "@/lib/client/marcacionResult";
 import { useFaceGuide } from "@/lib/client/useFaceGuide";
 import { FaceOval } from "./_components/face-oval";
 import { KioskoHeader } from "./_components/kiosko-header";
-import { EntradaScreen, FalloScreen, SalidaScreen } from "./_components/result-screens";
+import {
+  EntradaScreen,
+  FalloScreen,
+  SalidaAnticipadaScreen,
+  SalidaScreen,
+} from "./_components/result-screens";
 import { DetectingPanel, EquipmentErrorPanel, WaitingPanel } from "./_components/status-panel";
 
 // TODO: identificar cada kiosko (p. ej. por sede/punto) cuando exista el
@@ -13,25 +19,46 @@ import { DetectingPanel, EquipmentErrorPanel, WaitingPanel } from "./_components
 const DEVICE_ID = "kiosko-1";
 
 /** Cuánto se queda cada resultado en pantalla antes de volver a la cámara. */
-const RETURN_AFTER_MS: Record<MarcacionResult["kind"], number> = {
+const RETURN_AFTER_MS = {
   entrada: 3000,
   // La salida muestra tres cifras (hora, jornada, acumulado): un poco más.
   salida: 5000,
+  // Hay que leer desde cuándo se puede salir y a quién acudir.
+  "salida-anticipada": 7000,
+  // Un intento más: vuelve rápido a la cámara.
+  reintento: 4000,
   // Coincide con la cuenta regresiva "00:08" de la maqueta 1e.
   fallo: 8000,
-};
+} as const;
+
+// Si pasan más de 2 min entre fallos, probablemente es otra persona.
+const FAILURE_STREAK_RESET_MS = 2 * 60_000;
+
+export interface FailureInfo {
+  attempt: number;
+  limit: number;
+  offerFallback: boolean;
+}
 
 type Phase =
   | { name: "camara" }
   | { name: "enviando" }
-  | { name: "resultado"; result: MarcacionResult; photoUrl: string | null; deadline: number };
+  | {
+      name: "resultado";
+      result: MarcacionResult;
+      photoUrl: string | null;
+      deadline: number;
+      failure: FailureInfo | null;
+    };
 
-export function Kiosko() {
+export function Kiosko({ initialIntentosAntesQr }: { initialIntentosAntesQr: number }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { state, error: modelError, progress, captureFrame, hasCaptured, reset } = useFaceGuide(videoRef);
   const [phase, setPhase] = useState<Phase>({ name: "camara" });
   const [cameraError, setCameraError] = useState<string | null>(null);
   const photoUrlRef = useRef<string | null>(null);
+  const failureStreakRef = useRef<FailureStreak | null>(null);
+  const intentosAntesQrRef = useRef(initialIntentosAntesQr);
 
   const releasePhoto = useCallback(() => {
     if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current);
@@ -101,11 +128,29 @@ export function Kiosko() {
       }
       if (cancelled) return;
 
+      const now = Date.now();
+      let failure: FailureInfo | null = null;
+      let returnAfter: number;
+
+      if (result.kind === "fallo") {
+        if (result.intentosAntesQr) intentosAntesQrRef.current = result.intentosAntesQr;
+        const limit = intentosAntesQrRef.current;
+        const outcome = registerFailure(failureStreakRef.current, now, limit, FAILURE_STREAK_RESET_MS);
+        failureStreakRef.current = outcome.streak;
+        failure = { attempt: outcome.attempt, limit, offerFallback: outcome.offerFallback };
+        returnAfter = outcome.offerFallback ? RETURN_AFTER_MS.fallo : RETURN_AFTER_MS.reintento;
+      } else {
+        // Cualquier reconocimiento corta la racha de fallos.
+        failureStreakRef.current = null;
+        returnAfter = RETURN_AFTER_MS[result.kind];
+      }
+
       setPhase({
         name: "resultado",
         result,
         photoUrl: photoUrlRef.current,
-        deadline: Date.now() + RETURN_AFTER_MS[result.kind],
+        deadline: now + returnAfter,
+        failure,
       });
     }
 
@@ -168,13 +213,21 @@ export function Kiosko() {
 }
 
 function ResultScreen({ phase }: { phase: Extract<Phase, { name: "resultado" }> }) {
-  const { result, photoUrl, deadline } = phase;
+  const { result, photoUrl, deadline, failure } = phase;
   switch (result.kind) {
     case "entrada":
       return <EntradaScreen result={result} photoUrl={photoUrl} deadline={deadline} />;
     case "salida":
       return <SalidaScreen result={result} photoUrl={photoUrl} deadline={deadline} />;
+    case "salida-anticipada":
+      return <SalidaAnticipadaScreen result={result} deadline={deadline} />;
     case "fallo":
-      return <FalloScreen reason={result.reason} deadline={deadline} />;
+      return (
+        <FalloScreen
+          reason={result.reason}
+          deadline={deadline}
+          failure={failure ?? { attempt: 1, limit: 1, offerFallback: true }}
+        />
+      );
   }
 }

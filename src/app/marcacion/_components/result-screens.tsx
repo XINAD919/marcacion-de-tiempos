@@ -3,11 +3,13 @@
 import { firstName, formatClock, formatDuration, formatLongDate } from "@/lib/client/kioskoFormat";
 import { cn } from "@/lib/utils";
 import type { FailureReason, MarcacionResult } from "@/lib/client/marcacionResult";
+import type { FailureInfo } from "../kiosko";
 import { CapturedPhoto } from "./captured-photo";
 import { useSecondsLeft } from "./use-now";
 
 type Entrada = Extract<MarcacionResult, { kind: "entrada" }>;
 type Salida = Extract<MarcacionResult, { kind: "salida" }>;
+type SalidaAnticipada = Extract<MarcacionResult, { kind: "salida-anticipada" }>;
 
 interface ScreenProps {
   photoUrl: string | null;
@@ -39,12 +41,20 @@ export function EntradaScreen({ result, photoUrl, deadline }: ScreenProps & { re
           className="h-310 w-250 rounded-[calc(10*var(--u))] border-[length:calc(4*var(--u))] border-white bg-white/15"
         />
         <div className="min-w-0 flex-1">
-          <p className="mb-22 inline-flex items-center gap-12 rounded-full bg-white py-10 pr-24 pl-16">
-            <span aria-hidden className="size-26 rounded-full bg-brand-green" />
-            <span className="ktext-20 font-bold tracking-[0.06em] text-brand-green-ink">
-              ENTRADA REGISTRADA
-            </span>
-          </p>
+          <div className="mb-22 flex flex-wrap items-center gap-12">
+            <p className="inline-flex items-center gap-12 rounded-full bg-white py-10 pr-24 pl-16">
+              <span aria-hidden className="size-26 rounded-full bg-brand-green" />
+              <span className="ktext-20 font-bold tracking-[0.06em] text-brand-green-ink">
+                ENTRADA REGISTRADA
+              </span>
+            </p>
+            {/* Ámbar = advertencia: la entrada sí quedó registrada, solo que tarde. */}
+            {result.tardeMin !== null && (
+              <p className="ktext-20 rounded-full bg-brand-amber px-22 py-10 font-bold tracking-[0.06em] text-navy">
+                LLEGADA TARDE · {formatDuration(result.tardeMin * 60_000).toUpperCase()}
+              </p>
+            )}
+          </div>
           <p className="ktext-76 leading-[1.02] font-extrabold tracking-[-0.03em] text-balance">
             {result.nombre}
           </p>
@@ -120,6 +130,50 @@ export function SalidaScreen({ result, photoUrl, deadline }: ScreenProps & { res
   );
 }
 
+/**
+ * Salida antes del mínimo configurado en 4g: no se registró nada. Ámbar
+ * (advertencia, no error) con texto navy para mantener contraste AA.
+ */
+export function SalidaAnticipadaScreen({ result, deadline }: { result: SalidaAnticipada; deadline: number }) {
+  const seconds = useSecondsLeft(deadline);
+  const entrada = formatClock(result.entrada);
+  const desde = formatClock(result.disponibleDesde);
+
+  return (
+    <section role="alert" className="absolute inset-0 z-10 flex flex-col bg-brand-amber text-navy">
+      <div className="flex items-center px-36 py-22">
+        <span className="ktext-13 font-bold tracking-[0.24em]">BANCO DE ALIMENTOS</span>
+      </div>
+
+      <div className="flex min-h-0 flex-1 items-center px-56">
+        <div className="max-w-1000">
+          <p className="ktext-17 mb-20 inline-flex rounded-full bg-navy px-20 py-8 font-bold tracking-[0.08em] text-white">
+            TODAVÍA NO SE REGISTRA LA SALIDA
+          </p>
+          <p className="ktext-64 leading-[1.05] font-extrabold tracking-[-0.03em] text-balance">
+            {firstName(result.nombre)}, tu entrada fue a las {entrada.time} {entrada.period}
+          </p>
+          <p className="ktext-26 mt-18 max-w-[36ch] leading-[1.45] font-medium">
+            La salida se puede marcar desde las{" "}
+            <span className="font-extrabold tabular-nums">
+              {desde.time} {desde.period}
+            </span>
+            .
+          </p>
+          <p className="ktext-22 mt-28 max-w-[44ch] border-t border-navy/25 pt-20 leading-[1.45]">
+            Si necesitas salir antes, habla con coordinación para que registren tu salida
+            manualmente.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end bg-navy/10 px-56 pt-18 pb-24">
+        <p className="ktext-20 font-semibold tabular-nums">Volviendo a la cámara en {seconds} s</p>
+      </div>
+    </section>
+  );
+}
+
 function Stat({
   label,
   className,
@@ -157,8 +211,20 @@ const FAILURE_COPY: Record<FailureReason, { pill: string; title: string; body: s
   },
 };
 
-/** 1e — No reconocido: el rojo toma la pantalla y vuelve solo a la cámara. */
-export function FalloScreen({ reason, deadline }: { reason: FailureReason; deadline: number }) {
+/**
+ * 1e — No reconocido: el rojo toma la pantalla y vuelve solo a la cámara.
+ * Antes de llegar a "Intentos antes de pedir el QR" (4g) solo invita a
+ * reintentar; al llegar, remite al respaldo (coordinación, mientras no haya QR).
+ */
+export function FalloScreen({
+  reason,
+  deadline,
+  failure,
+}: {
+  reason: FailureReason;
+  deadline: number;
+  failure: FailureInfo;
+}) {
   const seconds = useSecondsLeft(deadline);
   const copy = FAILURE_COPY[reason];
 
@@ -181,14 +247,20 @@ export function FalloScreen({ reason, deadline }: { reason: FailureReason; deadl
             {copy.title}
           </p>
           <p className="ktext-26 mt-18 max-w-[30ch] leading-[1.45]">{copy.body}</p>
-          <p className="ktext-20 mt-28 max-w-[40ch] border-t border-white/30 pt-20 leading-[1.45]">
-            Si vuelve a pasar, acércate a coordinación: tu marcación se registra manualmente.
-          </p>
+          {failure.offerFallback && (
+            <p className="ktext-22 mt-28 max-w-[40ch] border-t border-white/30 pt-20 leading-[1.45] font-semibold">
+              Acércate a coordinación: tu marcación se registra manualmente.
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex items-center justify-between bg-black/20 px-56 pt-18 pb-24">
-        <p className="ktext-20 font-medium">Reintentando con la cámara automáticamente…</p>
+        <p className="ktext-20 font-medium">
+          {failure.offerFallback
+            ? "Volviendo a la cámara automáticamente…"
+            : `Intento ${failure.attempt} de ${failure.limit} · Reintentando con la cámara…`}
+        </p>
         <p className="ktext-20 font-semibold tabular-nums">00:{String(seconds).padStart(2, "0")}</p>
       </div>
     </section>
