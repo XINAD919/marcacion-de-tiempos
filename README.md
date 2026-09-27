@@ -113,6 +113,36 @@ certificado local con mkcert en `certificates/` (ignorado por git).
 Los modelos de `face-api.js` ya vienen en `public/models/` (tiny face detector, landmarks 68 y
 reconocimiento); no hay que descargarlos.
 
+## Desarrollo en Windows
+
+**Opción recomendada: WSL2.** Instala Ubuntu en WSL2 y sigue este README tal cual. Clona el repo
+dentro del sistema de archivos de Linux (`~/proyectos/...`), **no** en `/mnt/c/...`: ahí pnpm y el
+watcher de Next son muy lentos. Así se evitan los problemas de compilación nativa descritos abajo.
+
+**Windows nativo (PowerShell)** también es posible, con estas diferencias:
+
+- **Herramientas de compilación:** en lugar de los paquetes `apt-get`, instala
+  [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) con la
+  carga de trabajo *"Desarrollo para el escritorio con C++"* y Python 3. `canvas` normalmente usa un
+  binario precompilado, pero `@tensorflow/tfjs-node` puede necesitar compilar.
+- **Error de `tfjs-node` al iniciar** (`The specified module could not be found ... tfjs_binding.node`):
+  copia `tensorflow.dll` desde `node_modules/@tensorflow/tfjs-node/deps/lib/` a
+  `node_modules/@tensorflow/tfjs-node/lib/napi-v8/`.
+- **SQL Server:** usa Docker Desktop (backend WSL2) igual que en el paso 3, o instala
+  [SQL Server Developer/Express](https://www.microsoft.com/sql-server/sql-server-downloads)
+  directamente y ajusta `DATABASE_URL` a esa instancia.
+- **Certificado HTTPS:** `mkcert -install` usa el almacén de certificados de Windows y muestra un
+  diálogo para confirmar la CA; acéptalo. No hace falta `TRUST_STORES=nss`.
+- **Comandos equivalentes:**
+
+  | README (Linux) | PowerShell |
+  |---|---|
+  | `cp .env.example .env` | `Copy-Item .env.example .env` |
+  | `openssl rand -base64 32` | `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
+
+Los scripts de `package.json` no usan sintaxis de bash, así que `pnpm dev`, `pnpm test`, etc.
+funcionan igual.
+
 ## Pruebas
 
 ```bash
