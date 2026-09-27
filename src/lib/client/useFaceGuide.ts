@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { captureVideoFrame } from "./captureFrame";
 import { detectFace, loadDetectionModel } from "./faceDetection";
 import { type GuideState, nextGuideState } from "./guideState";
 
@@ -21,17 +22,7 @@ export function useFaceGuide(videoRef: React.RefObject<HTMLVideoElement | null>)
     setProgress(0);
   }, []);
 
-  const captureFrame = useCallback((video: HTMLVideoElement): Promise<Blob | null> => {
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return Promise.resolve(null);
-    ctx.drawImage(video, 0, 0);
-    return new Promise((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), "image/jpeg");
-    });
-  }, []);
+  const captureFrame = captureVideoFrame;
 
   useEffect(() => {
     let cancelled = false;

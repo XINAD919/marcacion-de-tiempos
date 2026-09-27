@@ -56,12 +56,30 @@ export async function findMatch(
   return { userId: best.label, distance: best.distance };
 }
 
+/** Guarda un descriptor de enrolamiento y devuelve su id (para repetir o cancelar la foto). */
 export async function saveEnrollmentDescriptor(
   userId: string,
   descriptor: Float32Array,
   modelo: string
-): Promise<void> {
-  await prisma.faceEmbedding.create({
+): Promise<string> {
+  const embedding = await prisma.faceEmbedding.create({
     data: { userId, embedding: descriptorToBuffer(descriptor), modelo },
+    select: { id: true },
   });
+  return embedding.id;
+}
+
+/** Borra fotos de enrolamiento de ese usuario (las de otro usuario se ignoran). */
+export async function deleteEnrollmentDescriptors(userId: string, ids: string[]): Promise<number> {
+  const result = await prisma.faceEmbedding.deleteMany({ where: { userId, id: { in: ids } } });
+  return result.count;
+}
+
+/**
+ * Cierra un enrolamiento: conserva solo las fotos de esta sesión y borra las
+ * anteriores, para que un reenrolamiento reemplace el rostro en vez de sumarse.
+ */
+export async function replaceEnrollment(userId: string, keepIds: string[]): Promise<number> {
+  const result = await prisma.faceEmbedding.deleteMany({ where: { userId, id: { notIn: keepIds } } });
+  return result.count;
 }

@@ -77,10 +77,12 @@ describe("findMatch", () => {
 
 describe("saveEnrollmentDescriptor", () => {
   it("persists the descriptor as a buffer via prisma", async () => {
-    create.mockResolvedValue(undefined);
+    create.mockResolvedValue({ id: "embedding-1" });
     const descriptor = fakeDescriptor(0.2);
 
-    await saveEnrollmentDescriptor("user-1", descriptor, "face-api-recognition-v1");
+    const id = await saveEnrollmentDescriptor("user-1", descriptor, "face-api-recognition-v1");
+
+    expect(id).toBe("embedding-1");
 
     expect(create).toHaveBeenCalledWith({
       data: {
@@ -88,6 +90,7 @@ describe("saveEnrollmentDescriptor", () => {
         embedding: descriptorToBuffer(descriptor),
         modelo: "face-api-recognition-v1",
       },
+      select: { id: true },
     });
   });
 });

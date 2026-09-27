@@ -47,6 +47,16 @@ export class MultipleFacesDetectedError extends Error {
 }
 
 export async function getFaceDescriptor(imageBuffer: Buffer): Promise<Float32Array> {
+  return (await analyzeFace(imageBuffer)).descriptor;
+}
+
+export interface FaceAnalysis {
+  descriptor: Float32Array;
+  /** Confianza del detector (0–1): baja con desenfoque, poca luz o rostro de perfil. */
+  score: number;
+}
+
+export async function analyzeFace(imageBuffer: Buffer): Promise<FaceAnalysis> {
   await loadModels();
   const image = await loadImage(imageBuffer);
 
@@ -58,5 +68,5 @@ export async function getFaceDescriptor(imageBuffer: Buffer): Promise<Float32Arr
   if (detections.length === 0) throw new NoFaceDetectedError();
   if (detections.length > 1) throw new MultipleFacesDetectedError();
 
-  return detections[0].descriptor;
+  return { descriptor: detections[0].descriptor, score: detections[0].detection.score };
 }
