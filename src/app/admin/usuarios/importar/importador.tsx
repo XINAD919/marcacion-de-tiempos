@@ -191,7 +191,9 @@ function Resultado({ result, onOtro }: { result: ImportResult; onOtro: () => voi
                     variant="link"
                     onClick={() => downloadBase64Xlsx(result.filasConErrorXlsx!, "filas-para-corregir.xlsx")}
                   >
-                    Descargar las {fmt(result.errores.length)} filas para corregir
+                    {result.errores.length === 1
+                      ? "Descargar la fila para corregir"
+                      : `Descargar las ${fmt(result.errores.length)} filas para corregir`}
                   </Button>
                 )
               }
@@ -201,7 +203,9 @@ function Resultado({ result, onOtro }: { result: ImportResult; onOtro: () => voi
           {result.duplicados.length > 0 && (
             <details className="rounded-xl border border-border bg-white">
               <summary className="cursor-pointer px-5 py-3.5 text-sm font-semibold text-navy">
-                Ver los {fmt(result.duplicados.length)} duplicados
+                {result.duplicados.length === 1
+                  ? "Ver el duplicado"
+                  : `Ver los ${fmt(result.duplicados.length)} duplicados`}
               </summary>
               <IssuesTable issues={result.duplicados} />
             </details>
@@ -209,8 +213,9 @@ function Resultado({ result, onOtro }: { result: ImportResult; onOtro: () => voi
 
           {result.insertados > 0 && (
             <p className="text-sm text-muted-foreground">
-              Los {fmt(result.insertados)} usuarios nuevos quedan sin rostro registrado hasta que los
-              enroles.
+              {result.insertados === 1
+                ? "El usuario nuevo queda sin rostro registrado hasta que lo enroles."
+                : `Los ${fmt(result.insertados)} usuarios nuevos quedan sin rostro registrado hasta que los enroles.`}
             </p>
           )}
         </>
