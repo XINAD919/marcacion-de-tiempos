@@ -281,3 +281,8 @@ Escala por contexto:
 - Para debugging: pasos claros de reproducción y solución
 - Respetar la sección **Imagen de marca y sistema de diseño**: no introducir colores, fuentes ni
   radios fuera de los tokens definidos sin acordarlo primero
+- **Mensajes de commit en español con formato [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/)**:
+  `tipo(ámbito opcional): descripción` en imperativo y minúscula, sin punto final. Tipos:
+  `feat`, `fix`, `refactor`, `style`, `docs`, `test`, `chore`, `build`, `perf`. Cuerpo opcional
+  explicando el *porqué*; `BREAKING CHANGE:` en el pie si aplica.
+  Ej.: `feat(kiosko): agrega pantallas de éxito y fallo de marcación`
