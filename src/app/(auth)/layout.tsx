@@ -2,23 +2,38 @@ import Image from "next/image";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-dvh">
-      <div className="bg-sidebar-primary w-140 h-dvh flex flex-col justify-between p-18 flex-1">
-        <div className="flex items-center gap-6">
-          <Image src="/logo-banco-alimentos.png" alt="Banco de Alimentos Bogotá" width={64} height={64} className="rounded-md" priority />
-          <span className="uppercase font-bold text-white text-[0.8vw] tracking-widest">banco de alimentos</span>
+    <div className="flex min-h-dvh bg-bone">
+      <aside className="flex w-[clamp(420px,32vw,560px)] flex-none flex-col bg-navy px-15 py-14">
+        <div className="flex items-center gap-3.5">
+          <Image
+            src="/logo-banco-alimentos.png"
+            alt="Banco de Alimentos Bogotá"
+            width={56}
+            height={56}
+            className="size-14 rounded-lg object-cover"
+            priority
+          />
+          <span className="text-[13px] font-bold tracking-[0.26em] text-white">BANCO DE ALIMENTOS</span>
         </div>
-        <div className="px-8">
-          <h1 className="text-[2.2vw] font-bold text-white">Control de tiempos de practicantes</h1>
-          <span className="text-gray-300 text-[0.9vw] block pt-1">
-            Acceso para coordinacion. Los practicantes no necesitan cuenta: marcan con su rostro
-          </span>
+
+        <div className="mt-auto">
+          <h1 className="text-[44px] leading-[1.08] font-bold tracking-[-0.03em] text-white">
+            Control de tiempos
+            <br />
+            de practicantes
+          </h1>
+          <p className="mt-4.5 max-w-[34ch] text-[17px] leading-relaxed text-pretty text-white/72">
+            Acceso para coordinación. Los practicantes no necesitan cuenta: marcan con su rostro en
+            los kioskos.
+          </p>
         </div>
-        <div className="border-t border-gray-700 pt-5">
-          <span className="text-gray-500 font-medium">Red interna de la fundación · conexión segura</span>
-        </div>
-      </div>
-      <div className="w-[65dvw] h-dvh flex items-center justify-center">{children}</div>
+
+        <p className="mt-auto border-t border-white/14 pt-5.5 text-[13px] text-white/50">
+          Red interna de la fundación · conexión segura
+        </p>
+      </aside>
+
+      <main className="flex min-w-0 flex-1 items-center justify-center p-8">{children}</main>
     </div>
   );
 }
