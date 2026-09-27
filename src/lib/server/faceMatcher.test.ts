@@ -35,7 +35,6 @@ describe("findMatch", () => {
   beforeEach(() => {
     findMany.mockReset();
     create.mockReset();
-    delete process.env.FACE_MATCH_THRESHOLD;
   });
 
   it("returns the matching userId when a stored descriptor is close enough", async () => {
@@ -54,6 +53,17 @@ describe("findMatch", () => {
     const result = await findMatch(fakeDescriptor(5));
 
     expect(result).toBeNull();
+  });
+
+  it("respeta el umbral recibido: el mismo rostro pasa en flexible y no en estricto", async () => {
+    const stored = fakeDescriptor(0.1);
+    findMany.mockResolvedValue([{ userId: "user-1", embedding: descriptorToBuffer(stored) }]);
+    // Distancia euclidiana entre dos vectores de 128 dimensiones que difieren
+    // en 0.042 por componente: 0.042 · √128 ≈ 0.475.
+    const probe = fakeDescriptor(0.142);
+
+    expect(await findMatch(probe, 0.55)).toMatchObject({ userId: "user-1" });
+    expect(await findMatch(probe, 0.45)).toBeNull();
   });
 
   it("returns null when there are no enrolled users", async () => {

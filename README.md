@@ -56,11 +56,13 @@ cp .env.example .env
 |---|---|
 | `SA_PASSWORD` | Contraseña del usuario `sa` de SQL Server (la usa `docker-compose.yml`). Debe cumplir la política de SQL Server: ≥ 8 caracteres con mayúsculas, minúsculas, números y símbolos. |
 | `DATABASE_URL` | Cadena de conexión de Prisma. La contraseña debe coincidir con `SA_PASSWORD`. |
-| `FACE_MATCH_THRESHOLD` | Distancia euclidiana máxima para aceptar un rostro (por defecto `0.5`; menor = más estricto). |
 | `AUTH_SECRET` | Secreto de NextAuth. Generarlo con `openssl rand -base64 32`. |
 | `SEED_ADMIN_EMAIL` | Correo del primer administrador. |
 | `SEED_ADMIN_PASSWORD` | Contraseña del primer administrador. **Cambiarla**: el seed se omite si se deja `changeme`. |
 | `SEED_ADMIN_NOMBRE` | Nombre visible del primer administrador. |
+
+La exigencia del reconocimiento facial (antes `FACE_MATCH_THRESHOLD`) y las demás reglas de
+marcación ya no van en `.env`: se ajustan desde **Configuración** en el panel de administración.
 
 ### 3. Levantar SQL Server
 

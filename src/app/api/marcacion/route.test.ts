@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { getFaceDescriptor } from "@/lib/server/faceEngine";
 import { descriptorToBuffer } from "@/lib/server/faceMatcher";
+import { type ConfigValues, DEFAULT_CONFIG } from "@/lib/configRules";
 import { prisma } from "@/lib/server/prisma";
 import { POST } from "./route";
 
@@ -24,8 +25,25 @@ function buildRequest(photo: Buffer, deviceId: string): Request {
 }
 
 let userId = "";
+let savedConfig: Awaited<ReturnType<typeof prisma.configuracion.findUnique>> = null;
+
+/** Fija las reglas de 4g para una prueba; afterAll restaura las originales. */
+async function setConfig(values: Partial<ConfigValues>) {
+  const merged = { ...DEFAULT_CONFIG, ...values };
+  await prisma.configuracion.upsert({
+    where: { id: 1 },
+    create: { id: 1, ...merged },
+    update: merged,
+  });
+}
+
+function hhmm(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
 
 beforeAll(async () => {
+  savedConfig = await prisma.configuracion.findUnique({ where: { id: 1 } });
+
   const enrollmentDescriptor = await getFaceDescriptor(await loadFixture("persona-a-2.jpg"));
 
   const user = await prisma.user.create({
@@ -38,6 +56,7 @@ beforeAll(async () => {
     },
   });
   userId = user.id;
+  await setConfig({ minMinutosAntesSalida: 0 });
 
   await prisma.faceEmbedding.create({
     data: {
@@ -51,9 +70,19 @@ beforeAll(async () => {
 afterEach(async () => {
   if (!userId) return;
   await prisma.attendanceLog.deleteMany({ where: { userId } });
+  await prisma.user.update({ where: { id: userId }, data: { horaInicio: null } });
+  // Por defecto sin mínimo antes de salida, para que las pruebas de SALIDA no
+  // dependan de la hora a la que corren.
+  await setConfig({ minMinutosAntesSalida: 0 });
 });
 
 afterAll(async () => {
+  if (savedConfig) {
+    const { id: _id, actualizadoEn: _en, ...values } = savedConfig;
+    await prisma.configuracion.update({ where: { id: 1 }, data: values });
+  } else {
+    await prisma.configuracion.deleteMany({ where: { id: 1 } });
+  }
   if (!userId) return;
   await prisma.faceEmbedding.deleteMany({ where: { userId } });
   await prisma.user.delete({ where: { id: userId } });
@@ -120,6 +149,61 @@ describe("POST /api/marcacion", () => {
       expect(body.jornadaMs).toBeLessThan(jornadaEsperada + 60_000);
       expect(body.acumuladoMs).toBeGreaterThanOrEqual(jornadaEsperada + tresHoras);
       expect(body.acumuladoMs).toBeLessThan(jornadaEsperada + tresHoras + 60_000);
+    },
+    20000
+  );
+
+  it(
+    "no registra la SALIDA antes del mínimo configurado y dice desde cuándo se puede",
+    async () => {
+      await setConfig({ minMinutosAntesSalida: 60 });
+      const entrada = new Date();
+      await prisma.attendanceLog.create({
+        data: { userId, tipo: "IN", metodo: "face", deviceId: "kiosko-test", marcadoEn: entrada },
+      });
+
+      const response = await POST(buildRequest(await loadFixture("persona-a-1.jpg"), "kiosko-test"));
+      const body = await response.json();
+
+      expect(body.bloqueado).toBe("salida-anticipada");
+      expect(body.entrada).toBe(entrada.toISOString());
+      expect(new Date(body.disponibleDesde).getTime()).toBe(entrada.getTime() + 60 * 60_000);
+      expect(await prisma.attendanceLog.count({ where: { userId } })).toBe(1);
+    },
+    20000
+  );
+
+  it(
+    "marca la ENTRADA como tarde cuando se pasa de la tolerancia",
+    async () => {
+      await setConfig({ toleranciaLlegadaMin: 10 });
+      const ahora = new Date();
+      const inicioDeHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+      // Hora de inicio hace 30 min (o medianoche si aún no pasan 30 min del día).
+      const inicio = new Date(Math.max(ahora.getTime() - 30 * 60_000, inicioDeHoy.getTime()));
+      await prisma.user.update({ where: { id: userId }, data: { horaInicio: hhmm(inicio) } });
+      const esperado = Math.floor((ahora.getTime() - new Date(inicio).setSeconds(0, 0)) / 60_000);
+
+      const response = await POST(buildRequest(await loadFixture("persona-a-1.jpg"), "kiosko-test"));
+      const body = await response.json();
+
+      expect(body.tipo).toBe("IN");
+      if (esperado > 10) {
+        expect(body.tardeMin).toBeGreaterThanOrEqual(esperado);
+        expect(body.tardeMin).toBeLessThanOrEqual(esperado + 1);
+      } else {
+        expect(body.tardeMin).toBeNull();
+      }
+    },
+    20000
+  );
+
+  it(
+    "sin coincidencia informa cuántos intentos hay antes de ofrecer el QR",
+    async () => {
+      await setConfig({ intentosAntesQr: 5 });
+      const response = await POST(buildRequest(await loadFixture("persona-b-1.jpg"), "kiosko-test"));
+      expect(await response.json()).toEqual({ matched: false, intentosAntesQr: 5 });
     },
     20000
   );

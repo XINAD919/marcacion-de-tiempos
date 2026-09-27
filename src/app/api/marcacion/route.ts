@@ -4,7 +4,10 @@ import {
   NoFaceDetectedError,
   getFaceDescriptor,
 } from "@/lib/server/faceEngine";
+import { matchThresholdFor } from "@/lib/configRules";
+import { getConfig } from "@/lib/server/config";
 import { findMatch } from "@/lib/server/faceMatcher";
+import { earlyExitUntil, lateMinutes } from "@/lib/server/markingRules";
 import { prisma } from "@/lib/server/prisma";
 import { sumWorkedMs } from "@/lib/server/workedTime";
 
@@ -54,12 +57,14 @@ export async function POST(request: Request) {
     throw error;
   }
 
-  const match = await findMatch(descriptor);
+  const config = await getConfig();
+  const match = await findMatch(descriptor, matchThresholdFor(config.exigenciaReconocimiento));
   if (!match) {
     console.info(
       `[marcacion] Sin coincidencia: deviceId=${deviceId} en=${new Date().toISOString()}`
     );
-    return NextResponse.json({ matched: false });
+    // El kiosko cuenta los fallos seguidos y ofrece el QR al llegar a este número.
+    return NextResponse.json({ matched: false, intentosAntesQr: config.intentosAntesQr });
   }
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: match.userId } });
@@ -69,9 +74,26 @@ export async function POST(request: Request) {
   });
 
   const tipo = lastLogToday?.tipo === "IN" ? "OUT" : "IN";
+  const now = new Date();
+
+  // Salida demasiado pronto: casi siempre es alguien que pasó dos veces por
+  // el kiosko. No se registra nada; coordinación puede marcarla a mano.
+  if (lastLogToday && tipo === "OUT") {
+    const disponibleDesde = earlyExitUntil(lastLogToday.marcadoEn, now, config.minMinutosAntesSalida);
+    if (disponibleDesde) {
+      console.info(`[marcacion] Salida anticipada rechazada: userId=${user.id} deviceId=${deviceId}`);
+      return NextResponse.json({
+        matched: true,
+        bloqueado: "salida-anticipada",
+        nombre: user.nombre,
+        entrada: lastLogToday.marcadoEn.toISOString(),
+        disponibleDesde: disponibleDesde.toISOString(),
+      });
+    }
+  }
 
   const log = await prisma.attendanceLog.create({
-    data: { userId: user.id, tipo, metodo: "face", confianza: match.distance, deviceId },
+    data: { userId: user.id, tipo, metodo: "face", confianza: match.distance, deviceId, marcadoEn: now },
   });
 
   console.info(
@@ -88,7 +110,11 @@ export async function POST(request: Request) {
   };
 
   if (tipo === "IN") {
-    return NextResponse.json(base);
+    // La llegada tarde se deriva del horario; no se guarda en el registro.
+    return NextResponse.json({
+      ...base,
+      tardeMin: lateMinutes(log.marcadoEn, user.horaInicio, config.toleranciaLlegadaMin),
+    });
   }
 
   // La salida muestra en el kiosko la jornada del día y las horas acumuladas;
@@ -98,10 +124,11 @@ export async function POST(request: Request) {
     select: { tipo: true, marcadoEn: true },
   });
   const today = startOfToday();
+  const options = { maxDailyMs: config.jornadaMaximaHoras * 60 * 60 * 1000 };
 
   return NextResponse.json({
     ...base,
-    jornadaMs: sumWorkedMs(marks.filter((mark) => mark.marcadoEn >= today)),
-    acumuladoMs: sumWorkedMs(marks),
+    jornadaMs: sumWorkedMs(marks.filter((mark) => mark.marcadoEn >= today), options),
+    acumuladoMs: sumWorkedMs(marks, options),
   });
 }

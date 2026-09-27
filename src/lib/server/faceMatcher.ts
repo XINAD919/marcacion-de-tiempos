@@ -1,12 +1,6 @@
 import * as faceapi from "face-api.js";
+import { DEFAULT_CONFIG, matchThresholdFor } from "@/lib/configRules";
 import { prisma } from "./prisma";
-
-export const DEFAULT_MATCH_THRESHOLD = 0.5;
-
-function getMatchThreshold(): number {
-  const raw = process.env.FACE_MATCH_THRESHOLD;
-  return raw ? Number(raw) : DEFAULT_MATCH_THRESHOLD;
-}
 
 export function descriptorToBuffer(descriptor: Float32Array): Buffer<ArrayBuffer> {
   // Face descriptors are always plain Float32Arrays backed by a real ArrayBuffer at
@@ -29,7 +23,14 @@ export interface MatchResult {
   distance: number;
 }
 
-export async function findMatch(descriptor: Float32Array): Promise<MatchResult | null> {
+/**
+ * @param threshold Distancia máxima aceptada; sale de "Exigencia del
+ *   reconocimiento" en Configuración (4g).
+ */
+export async function findMatch(
+  descriptor: Float32Array,
+  threshold = matchThresholdFor(DEFAULT_CONFIG.exigenciaReconocimiento)
+): Promise<MatchResult | null> {
   const rows = await prisma.faceEmbedding.findMany({
     where: { user: { activo: true } },
     select: { userId: true, embedding: true },
@@ -48,7 +49,7 @@ export async function findMatch(descriptor: Float32Array): Promise<MatchResult |
     ([userId, descriptors]) => new faceapi.LabeledFaceDescriptors(userId, descriptors)
   );
 
-  const matcher = new faceapi.FaceMatcher(labeled, getMatchThreshold());
+  const matcher = new faceapi.FaceMatcher(labeled, threshold);
   const best = matcher.findBestMatch(descriptor);
 
   if (best.label === "unknown") return null;

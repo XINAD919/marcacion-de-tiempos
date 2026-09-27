@@ -8,16 +8,24 @@ datasource db {
 }
 
 model User {
-  id            String          @id @default(uuid())
-  cedula        String          @unique
-  nombre        String
-  email         String
-  universidad   String
-  entidad       String
-  activo        Boolean         @default(true)
-  fechaRegistro DateTime        @default(now())
-  embeddings    FaceEmbedding[]
-  attendance    AttendanceLog[]
+  id              String          @id @default(uuid())
+  cedula          String          @unique
+  nombre          String
+  email           String?
+  universidad     String
+  entidad         String
+  // Las define el convenio con la institución (maqueta 4c).
+  horasRequeridas Int             @default(0)
+  fechaInicio     DateTime?       @db.Date
+  // Horario asignado "HH:mm"; sirve para marcar llegadas tarde.
+  horaInicio      String?         @db.VarChar(5)
+  horaFin         String?         @db.VarChar(5)
+  activo          Boolean         @default(true)
+  fechaRegistro   DateTime        @default(now())
+  embeddings      FaceEmbedding[]
+  attendance      AttendanceLog[]
+
+  @@index([nombre])
 }
 
 model Admin {
@@ -51,4 +59,21 @@ model AttendanceLog {
   marcadoEn DateTime @default(now())
 
   @@index([userId, marcadoEn])
+}
+
+// Reglas globales de la maqueta 4g. Una sola fila (id = 1); si no existe se
+// usan los valores por defecto de src/lib/server/config.ts.
+model Configuracion {
+  id                      Int      @id @default(1)
+  // Minutos después de la hora de inicio antes de contar como llegada tarde.
+  toleranciaLlegadaMin    Int      @default(10)
+  // Tiempo mínimo entre la entrada y la salida del mismo día; antes de eso el
+  // kiosko no registra la salida y remite a coordinación.
+  minMinutosAntesSalida   Int      @default(60)
+  // flexible | equilibrado | estricto → umbral de distancia facial.
+  exigenciaReconocimiento String   @default("equilibrado") @db.VarChar(20)
+  intentosAntesQr         Int      @default(3)
+  jornadaMaximaHoras      Int      @default(9)
+  actualizadoEn           DateTime @updatedAt
+  actualizadoPor          String?
 }

@@ -58,4 +58,46 @@ describe("sumWorkedMs", () => {
   it("devuelve 0 sin registros", () => {
     expect(sumWorkedMs([])).toBe(0);
   });
+
+  describe("con jornada máxima por día", () => {
+    it("no suma más del tope en un día (salida marcada al día siguiente)", () => {
+      expect(
+        sumWorkedMs(
+          [
+            { tipo: "IN", marcadoEn: at("08:00") },
+            { tipo: "OUT", marcadoEn: at("07:00", "2026-09-15") },
+          ],
+          { maxDailyMs: 9 * HOUR }
+        )
+      ).toBe(9 * HOUR);
+    });
+
+    it("aplica el tope a la suma de todos los tramos del día", () => {
+      expect(
+        sumWorkedMs(
+          [
+            { tipo: "IN", marcadoEn: at("06:00") },
+            { tipo: "OUT", marcadoEn: at("12:00") },
+            { tipo: "IN", marcadoEn: at("13:00") },
+            { tipo: "OUT", marcadoEn: at("19:00") },
+          ],
+          { maxDailyMs: 9 * HOUR }
+        )
+      ).toBe(9 * HOUR);
+    });
+
+    it("cada día tiene su propio tope", () => {
+      expect(
+        sumWorkedMs(
+          [
+            { tipo: "IN", marcadoEn: at("08:00") },
+            { tipo: "OUT", marcadoEn: at("20:00") },
+            { tipo: "IN", marcadoEn: at("08:00", "2026-09-15") },
+            { tipo: "OUT", marcadoEn: at("12:00", "2026-09-15") },
+          ],
+          { maxDailyMs: 9 * HOUR }
+        )
+      ).toBe(13 * HOUR);
+    });
+  });
 });
