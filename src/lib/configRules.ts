@@ -28,6 +28,8 @@ export function matchThresholdFor(exigencia: Exigencia): number {
 export interface ConfigValues {
   toleranciaLlegadaMin: number;
   minMinutosAntesSalida: number;
+  toleranciaLlegadaNaturalMin: number;
+  minMinutosAntesSalidaNatural: number;
   exigenciaReconocimiento: Exigencia;
   intentosAntesQr: number;
   jornadaMaximaHoras: number;
@@ -36,6 +38,8 @@ export interface ConfigValues {
 export const DEFAULT_CONFIG: ConfigValues = {
   toleranciaLlegadaMin: 10,
   minMinutosAntesSalida: 60,
+  toleranciaLlegadaNaturalMin: 10,
+  minMinutosAntesSalidaNatural: 60,
   exigenciaReconocimiento: "equilibrado",
   intentosAntesQr: 3,
   jornadaMaximaHoras: 9,
@@ -44,6 +48,8 @@ export const DEFAULT_CONFIG: ConfigValues = {
 export type ConfigField =
   | "toleranciaLlegadaMin"
   | "minHorasAntesSalida"
+  | "toleranciaLlegadaNaturalMin"
+  | "minHorasAntesSalidaNatural"
   | "exigenciaReconocimiento"
   | "intentosAntesQr"
   | "jornadaMaximaHoras";
@@ -63,6 +69,15 @@ function intInRange(raw: unknown, min: number, max: number): number | null {
   return value !== null && Number.isInteger(value) && value >= min && value <= max ? value : null;
 }
 
+/** Horas con coma o punto decimal (0–12) → minutos; null si no sirve. */
+function hoursToMinutes(raw: unknown): number | null {
+  const horas = parseNumber(raw);
+  return horas === null || horas < 0 || horas > 12 ? null : Math.round(horas * 60);
+}
+
+const MSG_TOLERANCIA = "Escribe un número de minutos entre 0 y 120.";
+const MSG_HORAS_SALIDA = "Escribe un número de horas entre 0 y 12.";
+
 export function isExigencia(value: unknown): value is Exigencia {
   return typeof value === "string" && (EXIGENCIAS as readonly string[]).includes(value);
 }
@@ -72,12 +87,16 @@ export function parseConfigForm(input: Partial<Record<ConfigField, unknown>>): C
   const errors: Partial<Record<ConfigField, string>> = {};
 
   const tolerancia = intInRange(input.toleranciaLlegadaMin, 0, 120);
-  if (tolerancia === null) errors.toleranciaLlegadaMin = "Escribe un número de minutos entre 0 y 120.";
+  if (tolerancia === null) errors.toleranciaLlegadaMin = MSG_TOLERANCIA;
 
-  const horas = parseNumber(input.minHorasAntesSalida);
-  if (horas === null || horas < 0 || horas > 12) {
-    errors.minHorasAntesSalida = "Escribe un número de horas entre 0 y 12.";
-  }
+  const minSalida = hoursToMinutes(input.minHorasAntesSalida);
+  if (minSalida === null) errors.minHorasAntesSalida = MSG_HORAS_SALIDA;
+
+  const toleranciaNatural = intInRange(input.toleranciaLlegadaNaturalMin, 0, 120);
+  if (toleranciaNatural === null) errors.toleranciaLlegadaNaturalMin = MSG_TOLERANCIA;
+
+  const minSalidaNatural = hoursToMinutes(input.minHorasAntesSalidaNatural);
+  if (minSalidaNatural === null) errors.minHorasAntesSalidaNatural = MSG_HORAS_SALIDA;
 
   const exigencia = input.exigenciaReconocimiento;
   if (!isExigencia(exigencia)) {
@@ -96,10 +115,28 @@ export function parseConfigForm(input: Partial<Record<ConfigField, unknown>>): C
     ok: true,
     value: {
       toleranciaLlegadaMin: tolerancia!,
-      minMinutosAntesSalida: Math.round(horas! * 60),
+      minMinutosAntesSalida: minSalida!,
+      toleranciaLlegadaNaturalMin: toleranciaNatural!,
+      minMinutosAntesSalidaNatural: minSalidaNatural!,
       exigenciaReconocimiento: exigencia as Exigencia,
       intentosAntesQr: intentos!,
       jornadaMaximaHoras: jornada!,
     },
   };
+}
+
+/**
+ * Tolerancia de llegada y mínimo antes de la salida que aplican a un usuario.
+ * Los voluntarios naturales tienen las suyas; el resto de reglas es global.
+ */
+export function reglasPara(
+  config: ConfigValues,
+  tipo: string
+): { toleranciaLlegadaMin: number; minMinutosAntesSalida: number } {
+  return tipo === "natural"
+    ? {
+        toleranciaLlegadaMin: config.toleranciaLlegadaNaturalMin,
+        minMinutosAntesSalida: config.minMinutosAntesSalidaNatural,
+      }
+    : { toleranciaLlegadaMin: config.toleranciaLlegadaMin, minMinutosAntesSalida: config.minMinutosAntesSalida };
 }

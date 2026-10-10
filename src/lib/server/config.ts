@@ -11,6 +11,8 @@ export async function getConfig(): Promise<ConfigValues> {
   return {
     toleranciaLlegadaMin: row.toleranciaLlegadaMin,
     minMinutosAntesSalida: row.minMinutosAntesSalida,
+    toleranciaLlegadaNaturalMin: row.toleranciaLlegadaNaturalMin,
+    minMinutosAntesSalidaNatural: row.minMinutosAntesSalidaNatural,
     // Una columna de texto podría traer un valor viejo o editado a mano.
     exigenciaReconocimiento: isExigencia(row.exigenciaReconocimiento)
       ? row.exigenciaReconocimiento

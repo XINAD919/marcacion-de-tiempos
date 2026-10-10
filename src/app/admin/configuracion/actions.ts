@@ -22,6 +22,8 @@ export type ConfigFormState =
 const FIELDS: ConfigField[] = [
   "toleranciaLlegadaMin",
   "minHorasAntesSalida",
+  "toleranciaLlegadaNaturalMin",
+  "minHorasAntesSalidaNatural",
   "exigenciaReconocimiento",
   "intentosAntesQr",
   "jornadaMaximaHoras",

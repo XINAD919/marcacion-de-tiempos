@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CONFIG, matchThresholdFor, parseConfigForm } from "./configRules";
+import { DEFAULT_CONFIG, matchThresholdFor, parseConfigForm, reglasPara } from "./configRules";
 
 const valid = {
   toleranciaLlegadaMin: "10",
   minHorasAntesSalida: "1.5",
+  toleranciaLlegadaNaturalMin: "20",
+  minHorasAntesSalidaNatural: "0,5",
   exigenciaReconocimiento: "estricto",
   intentosAntesQr: "5",
   jornadaMaximaHoras: "9",
@@ -16,6 +18,8 @@ describe("parseConfigForm", () => {
       value: {
         toleranciaLlegadaMin: 10,
         minMinutosAntesSalida: 90,
+        toleranciaLlegadaNaturalMin: 20,
+        minMinutosAntesSalidaNatural: 30,
         exigenciaReconocimiento: "estricto",
         intentosAntesQr: 5,
         jornadaMaximaHoras: 9,
@@ -30,6 +34,7 @@ describe("parseConfigForm", () => {
 
   it("explica en español llano cada campo inválido", () => {
     const result = parseConfigForm({
+      ...valid,
       toleranciaLlegadaMin: "-3",
       minHorasAntesSalida: "abc",
       exigenciaReconocimiento: "máximo",
@@ -73,5 +78,34 @@ describe("DEFAULT_CONFIG", () => {
       intentosAntesQr: 3,
       jornadaMaximaHoras: 9,
     });
+  });
+});
+
+describe("parseConfigForm · voluntarios naturales", () => {
+  it("valida sus reglas con los mismos rangos", () => {
+    const result = parseConfigForm({ ...valid, toleranciaLlegadaNaturalMin: "200", minHorasAntesSalidaNatural: "x" });
+    expect(!result.ok && result.errors).toEqual({
+      toleranciaLlegadaNaturalMin: "Escribe un número de minutos entre 0 y 120.",
+      minHorasAntesSalidaNatural: "Escribe un número de horas entre 0 y 12.",
+    });
+  });
+});
+
+describe("reglasPara", () => {
+  const config = {
+    ...DEFAULT_CONFIG,
+    toleranciaLlegadaMin: 10,
+    minMinutosAntesSalida: 60,
+    toleranciaLlegadaNaturalMin: 25,
+    minMinutosAntesSalidaNatural: 30,
+  };
+
+  it("los practicantes usan las reglas generales", () => {
+    expect(reglasPara(config, "universidad")).toEqual({ toleranciaLlegadaMin: 10, minMinutosAntesSalida: 60 });
+    expect(reglasPara(config, "colegio")).toEqual({ toleranciaLlegadaMin: 10, minMinutosAntesSalida: 60 });
+  });
+
+  it("los voluntarios naturales usan las suyas", () => {
+    expect(reglasPara(config, "natural")).toEqual({ toleranciaLlegadaMin: 25, minMinutosAntesSalida: 30 });
   });
 });

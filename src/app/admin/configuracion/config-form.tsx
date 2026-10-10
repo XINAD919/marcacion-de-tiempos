@@ -66,7 +66,7 @@ export function ConfigForm({ config, aside, children }: ConfigFormProps) {
               <SettingRow
                 htmlFor="toleranciaLlegadaMin"
                 title="Tolerancia de llegada"
-                description="Minutos después de la hora de inicio antes de contar como llegada tarde."
+                description="Practicantes de universidad y colegio: minutos después de la hora de inicio antes de contar como llegada tarde."
                 error={errors.toleranciaLlegadaMin}
               >
                 <UnitInput
@@ -83,7 +83,7 @@ export function ConfigForm({ config, aside, children }: ConfigFormProps) {
               <SettingRow
                 htmlFor="minHorasAntesSalida"
                 title="Tiempo mínimo antes de la salida"
-                description="Si alguien intenta marcar salida antes de este tiempo desde su entrada, el kiosko no la registra y le pide hablar con coordinación."
+                description="Practicantes de universidad y colegio. Si alguien intenta marcar salida antes de este tiempo desde su entrada, el kiosko no la registra y le pide hablar con coordinación."
                 error={errors.minHorasAntesSalida}
               >
                 <UnitInput
@@ -122,6 +122,41 @@ export function ConfigForm({ config, aside, children }: ConfigFormProps) {
                   label="Intentos antes de pedir el respaldo"
                   defaultValue={value("intentosAntesQr", String(config.intentosAntesQr))}
                   options={intentos.map((n) => ({ value: String(n), label: String(n) }))}
+                />
+              </SettingRow>
+            </SettingsCard>
+
+            <SettingsCard title="Voluntarios naturales">
+              <SettingRow
+                htmlFor="toleranciaLlegadaNaturalMin"
+                title="Tolerancia de llegada"
+                description="Minutos después de su hora de llegada antes de contar como llegada tarde."
+                error={errors.toleranciaLlegadaNaturalMin}
+              >
+                <UnitInput
+                  id="toleranciaLlegadaNaturalMin"
+                  name="toleranciaLlegadaNaturalMin"
+                  unit="minutos"
+                  inputMode="numeric"
+                  defaultValue={value("toleranciaLlegadaNaturalMin", String(config.toleranciaLlegadaNaturalMin))}
+                  aria-invalid={Boolean(errors.toleranciaLlegadaNaturalMin) || undefined}
+                  aria-describedby={describedBy("toleranciaLlegadaNaturalMin")}
+                />
+              </SettingRow>
+
+              <SettingRow
+                htmlFor="minHorasAntesSalidaNatural"
+                title="Tiempo mínimo antes de la salida"
+                description="Si un voluntario intenta marcar salida antes de este tiempo desde su entrada, el kiosko no la registra y le pide hablar con coordinación."
+                error={errors.minHorasAntesSalidaNatural}
+              >
+                <UnitInput
+                  id="minHorasAntesSalidaNatural"
+                  name="minHorasAntesSalidaNatural"
+                  unit="horas"
+                  defaultValue={value("minHorasAntesSalidaNatural", formatHours(config.minMinutosAntesSalidaNatural))}
+                  aria-invalid={Boolean(errors.minHorasAntesSalidaNatural) || undefined}
+                  aria-describedby={describedBy("minHorasAntesSalidaNatural")}
                 />
               </SettingRow>
             </SettingsCard>
