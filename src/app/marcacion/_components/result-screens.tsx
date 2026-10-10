@@ -60,7 +60,7 @@ export function EntradaScreen({ result, photoUrl, deadline }: ScreenProps & { re
             {result.nombre}
           </p>
           <p className="ktext-26 mt-18 font-medium">
-            {result.universidad} · {result.entidad}
+            {result.afiliacion}
           </p>
           <p className="mt-26 flex items-baseline gap-20">
             <span className="ktext-92 leading-none font-extrabold tracking-[-0.03em] tabular-nums">
@@ -106,7 +106,7 @@ export function SalidaScreen({ result, photoUrl, deadline }: ScreenProps & { res
           <div className="min-w-0 flex-1">
             <p className="ktext-52 leading-[1.05] font-extrabold tracking-[-0.025em]">{result.nombre}</p>
             <p className="ktext-22 mt-8 font-medium text-navy/70">
-              {result.universidad} · {result.entidad}
+              {result.afiliacion}
             </p>
 
             <dl className="mt-26 flex justify-between gap-24 border-t border-navy/14 pt-22">

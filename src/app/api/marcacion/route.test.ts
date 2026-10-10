@@ -114,6 +114,7 @@ describe("POST /api/marcacion", () => {
 
       expect(body.universidad).toBe("Universidad de Prueba");
       expect(body.entidad).toBe("Entidad de Prueba");
+      expect(body.afiliacion).toBe("Universidad de Prueba · Entidad de Prueba");
     },
     20000
   );

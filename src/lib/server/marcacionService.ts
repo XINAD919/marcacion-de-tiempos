@@ -1,5 +1,6 @@
 import type { User } from "@prisma/client";
-import type { ConfigValues } from "@/lib/configRules";
+import { type ConfigValues, reglasPara } from "@/lib/configRules";
+import { describeAfiliacion } from "@/lib/usuarios/tipoUsuario";
 import { earlyExitUntil, lateMinutes } from "./markingRules";
 import { prisma } from "./prisma";
 import { sumWorkedMs } from "./workedTime";
@@ -21,6 +22,8 @@ interface MarkInput {
  * QR del carnet) y arma la respuesta que pinta el kiosko.
  */
 export async function registrarMarcacion(user: User, config: ConfigValues, { metodo, confianza, deviceId }: MarkInput) {
+  // Tolerancia y mínimo antes de la salida dependen del tipo de usuario.
+  const reglas = reglasPara(config, user.tipo);
   const lastLogToday = await prisma.attendanceLog.findFirst({
     where: { userId: user.id, marcadoEn: { gte: startOfToday() } },
     orderBy: { marcadoEn: "desc" },
@@ -32,7 +35,7 @@ export async function registrarMarcacion(user: User, config: ConfigValues, { met
   // Salida demasiado pronto: casi siempre es alguien que pasó dos veces por
   // el kiosko. No se registra nada; coordinación puede marcarla a mano.
   if (lastLogToday && tipo === "OUT") {
-    const disponibleDesde = earlyExitUntil(lastLogToday.marcadoEn, now, config.minMinutosAntesSalida);
+    const disponibleDesde = earlyExitUntil(lastLogToday.marcadoEn, now, reglas.minMinutosAntesSalida);
     if (disponibleDesde) {
       console.info(`[marcacion] Salida anticipada rechazada: userId=${user.id} deviceId=${deviceId}`);
       return {
@@ -54,13 +57,14 @@ export async function registrarMarcacion(user: User, config: ConfigValues, { met
     nombre: user.nombre,
     universidad: user.universidad,
     entidad: user.entidad,
+    afiliacion: describeAfiliacion(user),
     hora: log.marcadoEn.toISOString(),
     tipo,
   };
 
   if (tipo === "IN") {
     // La llegada tarde se deriva del horario; no se guarda en el registro.
-    return { ...base, tardeMin: lateMinutes(log.marcadoEn, user.horaInicio, config.toleranciaLlegadaMin) };
+    return { ...base, tardeMin: lateMinutes(log.marcadoEn, user.horaInicio, reglas.toleranciaLlegadaMin) };
   }
 
   // La salida muestra en el kiosko la jornada del día y las horas acumuladas;

@@ -1,7 +1,7 @@
 interface Recognized {
   nombre: string;
-  universidad: string;
-  entidad: string;
+  /** "Universidad · Entidad" o "Voluntario natural"; la arma el servidor. */
+  afiliacion: string;
   hora: Date;
 }
 
@@ -54,18 +54,12 @@ export function interpretMarcacionResponse(status: number, body: unknown): Marca
     };
   }
 
-  const { nombre, universidad, entidad, hora, tipo } = data;
-  if (
-    data.matched !== true ||
-    typeof nombre !== "string" ||
-    typeof universidad !== "string" ||
-    typeof entidad !== "string" ||
-    typeof hora !== "string"
-  ) {
+  const { nombre, afiliacion, hora, tipo } = data;
+  if (data.matched !== true || typeof nombre !== "string" || typeof afiliacion !== "string" || typeof hora !== "string") {
     return fail("error");
   }
 
-  const recognized: Recognized = { nombre, universidad, entidad, hora: new Date(hora) };
+  const recognized: Recognized = { nombre, afiliacion, hora: new Date(hora) };
 
   if (tipo === "IN") {
     const tardeMin = typeof data.tardeMin === "number" ? data.tardeMin : null;
