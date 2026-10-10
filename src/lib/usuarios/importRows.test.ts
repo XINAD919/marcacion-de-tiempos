@@ -145,4 +145,12 @@ describe("classifyImportRows", () => {
     const result = classifyImportRows([{ ...header, Tipo: "Natural" }], new Set());
     expect(result.errores[0]?.motivo).toContain("Falta la hora de llegada");
   });
+
+  it("acepta Hora de llegada y Hora de salida, como dice el formulario", () => {
+    const result = classifyImportRows(
+      [{ Nombre: "Marta Gómez", "Cédula": "52123456", Tipo: "Natural", "Hora de llegada": "09:00", "Hora de salida": "13:00" }],
+      new Set()
+    );
+    expect(result.validos[0]?.input).toMatchObject({ horaInicio: "09:00", horaFin: "13:00" });
+  });
 });

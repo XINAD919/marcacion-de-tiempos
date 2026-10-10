@@ -34,8 +34,8 @@ const HEADER_ALIASES: Record<Column, string[]> = {
   entidad: ["entidad", "entidad donde practica", "sede"],
   horasRequeridas: ["horas requeridas", "horas exigidas", "horas"],
   fechaInicio: ["fecha de inicio", "fecha inicio", "inicio"],
-  horaInicio: ["hora de inicio", "hora inicio"],
-  horaFin: ["hora de fin", "hora fin"],
+  horaInicio: ["hora de inicio", "hora inicio", "hora de llegada", "llegada"],
+  horaFin: ["hora de fin", "hora fin", "hora de salida", "salida"],
 };
 
 const REQUIRED: { column: Column | "nombre"; label: string }[] = [
