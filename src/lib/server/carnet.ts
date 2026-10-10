@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import QRCode from "qrcode";
 import { carnetQrContent } from "@/lib/carnetQr";
+import { describeAfiliacion } from "@/lib/usuarios/tipoUsuario";
 import { sendMail } from "./mailer";
 import { prisma } from "./prisma";
 
@@ -60,8 +61,9 @@ function escapeHtml(value: string): string {
 export interface CarnetData {
   nombre: string;
   cedula: string;
-  universidad: string;
-  entidad: string;
+  tipo: string;
+  universidad: string | null;
+  entidad: string | null;
 }
 
 /**
@@ -71,7 +73,7 @@ export interface CarnetData {
 export function renderCarnetHtml(data: CarnetData, images: { qrSrc: string; logoSrc: string }): string {
   const nombre = escapeHtml(data.nombre);
   const cedula = escapeHtml(data.cedula);
-  const detalle = `${escapeHtml(data.universidad)} · ${escapeHtml(data.entidad)}`;
+  const detalle = escapeHtml(describeAfiliacion(data));
 
   return `<!doctype html>
 <html lang="es">

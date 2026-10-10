@@ -6,7 +6,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initials } from "@/lib/initials";
 import { PAGE_SIZE, type UsuarioRow, listFilterOptions, listUsuarios } from "@/lib/server/usuarioService";
-import { ESTADO_OPCIONES, type Filters, hrefWith, parseUsuarioFilters } from "@/lib/usuarios/filters";
+import { ESTADO_OPCIONES, type Filters, TIPO_OPCIONES, hrefWith, parseUsuarioFilters } from "@/lib/usuarios/filters";
+import { TIPO_USUARIO_LABEL, isTipoUsuario } from "@/lib/usuarios/tipoUsuario";
 import { formatCedula } from "@/lib/usuarios/userInput";
 import { cn } from "@/lib/utils";
 import { FiltersBar } from "./filters-bar";
@@ -31,7 +32,7 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, total);
-  const hasFilters = Boolean(filters.q || filters.universidad || filters.entidad || filters.estado);
+  const hasFilters = Boolean(filters.q || filters.tipo || filters.universidad || filters.entidad || filters.estado);
 
   return (
     <>
@@ -52,6 +53,7 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
         <FiltersBar
           filters={filters}
           defs={[
+            { key: "tipo", label: "Tipo", options: TIPO_OPCIONES },
             {
               key: "universidad",
               label: "Universidad / Colegio",
@@ -90,6 +92,7 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Cédula</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Universidad / Colegio</TableHead>
                 <TableHead>Entidad</TableHead>
                 <TableHead>Estado</TableHead>
@@ -113,8 +116,9 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
                       </div>
                     </TableCell>
                     <TableCell className="tabular-nums">{formatCedula(user.cedula)}</TableCell>
-                    <TableCell>{user.universidad}</TableCell>
-                    <TableCell>{user.entidad}</TableCell>
+                    <TableCell>{isTipoUsuario(user.tipo) ? TIPO_USUARIO_LABEL[user.tipo] : user.tipo}</TableCell>
+                    <TableCell>{user.universidad ?? "—"}</TableCell>
+                    <TableCell>{user.entidad ?? "—"}</TableCell>
                     <TableCell>
                       <EstadoPill user={user} />
                     </TableCell>

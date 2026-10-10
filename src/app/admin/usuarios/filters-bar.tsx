@@ -8,7 +8,7 @@ import { type Filters, hrefWith } from "@/lib/usuarios/filters";
 const SEARCH_DEBOUNCE_MS = 300;
 
 interface FilterDef {
-  key: "universidad" | "entidad" | "estado";
+  key: "tipo" | "universidad" | "entidad" | "estado";
   label: string;
   options: { value: string; label: string }[];
 }

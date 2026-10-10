@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getUsuario } from "@/lib/server/usuarioService";
+import { describeAfiliacion } from "@/lib/usuarios/tipoUsuario";
 import { formatCedula } from "@/lib/usuarios/userInput";
 import { Enrolamiento } from "./enrolamiento";
 
@@ -15,7 +16,7 @@ export default async function EnrolarPage({ params }: PageProps<"/admin/enrolar/
     <Enrolamiento
       userId={user.id}
       nombre={user.nombre}
-      detalle={`C.C. ${formatCedula(user.cedula)} · ${user.universidad}`}
+      detalle={`C.C. ${formatCedula(user.cedula)} · ${describeAfiliacion(user)}`}
       fotosPrevias={user.fotos}
     />
   );
