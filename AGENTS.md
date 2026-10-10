@@ -139,7 +139,8 @@ src/
    automático contra los usuarios enrolados, feedback inmediato de éxito/fallo, fallback a QR
    del carnet si el reconocimiento falla repetidamente.
 2. **Administración:** CRUD de practicantes (crear, listar, editar, inactivar), importación
-   masiva desde Excel con reporte de insertados/duplicados/errores, pantalla de enrolamiento
+   masiva desde Excel con reporte de insertados/duplicados/errores (columna opcional **Tipo**:
+   Universidad / Colegio / Natural; sin ella se asume universidad), pantalla de enrolamiento
    facial (captura de 3-5 fotos por usuario para mejorar precisión del matching).
 3. **Reportes:** tabla filtrable por universidad/entidad/estado con horas cumplidas, horas
    restantes y última marcación por practicante; identificación de próximos a finalizar;
@@ -147,8 +148,10 @@ src/
 
 ## Modelo de datos (borrador, SQL Server)
 
-- `users`: id, cedula, nombre, email (opcional), universidad, entidad, horas_requeridas,
-  fecha_inicio (DATE), hora_inicio / hora_fin ("HH:mm", horario asignado), activo, fecha_registro
+- `users`: id, cedula, nombre, email (opcional), tipo (`universidad` | `colegio` | `natural`,
+  ver `src/lib/usuarios/tipoUsuario.ts`), universidad y entidad (NULL en naturales),
+  horas_requeridas (0 en naturales), fecha_inicio (DATE), hora_inicio / hora_fin ("HH:mm",
+  horario asignado; obligatorio en naturales), activo, fecha_registro
 - `face_embeddings`: id, user_id (FK), embedding (VARBINARY), modelo, fecha_captura
 - `attendance_logs`: id, user_id (FK), tipo (IN/OUT), metodo (face/qr), confianza, device_id, marcado_en
 - `carnet_virtual`: user_id (PK/FK), token (único), creado_en, enviado_en, enviado_a. El QR
@@ -160,6 +163,8 @@ src/
 - `configuracion`: una sola fila (id = 1) con las reglas de la maqueta 4g — tolerancia de llegada,
   tiempo mínimo antes de la salida, exigencia del reconocimiento, intentos antes del respaldo y
   jornada máxima por día. Sin fila se usan los valores por defecto de `src/lib/configRules.ts`.
+  Tolerancia de llegada y tiempo mínimo antes de la salida tienen además una versión para
+  voluntarios naturales (`reglasPara` en `src/lib/configRules.ts`).
 
 Las horas cumplidas se calculan a partir de `attendance_logs` (pares IN/OUT), no se guardan como
 campo persistente, para evitar inconsistencias. Lo mismo la llegada tarde: se deriva del horario
@@ -180,6 +185,9 @@ asignado y la tolerancia, nunca se guarda.
 - **Intentos antes del respaldo:** fallos seguidos en un kiosko (se reinicia tras 2 min o con un
   reconocimiento) antes de remitir a coordinación / QR.
 - **Jornada máxima por día:** tope de lo que suma cada día en `sumWorkedMs`.
+- **Voluntarios naturales:** acumulan horas igual que los practicantes, pero sin meta (sin
+  horas requeridas, progreso ni fecha estimada de fin). Usan su propia tolerancia de llegada
+  y su propio tiempo mínimo antes de la salida; el resto de reglas es común.
 
 ## Imagen de marca y sistema de diseño
 
