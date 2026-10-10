@@ -36,3 +36,14 @@ describe("hrefWith", () => {
     expect(hrefWith({}, {})).toBe("/admin/usuarios");
   });
 });
+
+describe("filtro por tipo", () => {
+  it("lee el tipo de la URL e ignora valores desconocidos", () => {
+    expect(parseUsuarioFilters({ tipo: "natural" }).tipo).toBe("natural");
+    expect(parseUsuarioFilters({ tipo: "empresa" }).tipo).toBeUndefined();
+  });
+
+  it("lo escribe en la URL", () => {
+    expect(hrefWith({}, { tipo: "colegio" })).toBe("/admin/usuarios?tipo=colegio");
+  });
+});

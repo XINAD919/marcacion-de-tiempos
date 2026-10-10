@@ -19,6 +19,7 @@ export type UsuarioFormState =
   | { status: "error"; message: string; values: Record<string, string> };
 
 const FIELDS: (UsuarioField | "activo")[] = [
+  "tipo",
   "nombre",
   "cedula",
   "email",

@@ -1,13 +1,18 @@
+import { TIPOS_USUARIO, TIPO_USUARIO_LABEL, type TipoUsuario, isTipoUsuario } from "./tipoUsuario";
+
 export const ESTADO_OPCIONES = [
   { value: "activo", label: "Activo" },
   { value: "inactivo", label: "Inactivo" },
   { value: "sin-rostro", label: "Sin rostro" },
 ] as const;
 
+export const TIPO_OPCIONES = TIPOS_USUARIO.map((value) => ({ value, label: TIPO_USUARIO_LABEL[value] }));
+
 export type Estado = (typeof ESTADO_OPCIONES)[number]["value"];
 
 export interface Filters {
   q?: string;
+  tipo?: TipoUsuario;
   universidad?: string;
   entidad?: string;
   estado?: Estado;
@@ -26,10 +31,12 @@ function isEstado(value: string | undefined): value is Estado {
 }
 
 export function parseUsuarioFilters(params: SearchParams): Filters {
+  const tipo = first(params.tipo);
   const estado = first(params.estado);
   const page = Number(first(params.page));
   return {
     q: first(params.q),
+    tipo: isTipoUsuario(tipo) ? tipo : undefined,
     universidad: first(params.universidad),
     entidad: first(params.entidad),
     estado: isEstado(estado) ? estado : undefined,
@@ -37,7 +44,7 @@ export function parseUsuarioFilters(params: SearchParams): Filters {
   };
 }
 
-const ORDER: (keyof Filters)[] = ["q", "universidad", "entidad", "estado", "page"];
+const ORDER: (keyof Filters)[] = ["q", "tipo", "universidad", "entidad", "estado", "page"];
 
 /**
  * URL del listado con `changes` aplicados. Cualquier cambio que no sea de

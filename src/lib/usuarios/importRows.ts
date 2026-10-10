@@ -24,6 +24,7 @@ type Column = UsuarioField | "nombres" | "apellidos";
 // Encabezados aceptados, ya normalizados (minúsculas, sin tildes ni espacios extra).
 const HEADER_ALIASES: Record<Column, string[]> = {
   nombre: ["nombre", "nombre completo", "nombres y apellidos", "practicante"],
+  tipo: ["tipo", "tipo de usuario", "tipo de practicante"],
   nombres: ["nombres"],
   apellidos: ["apellidos"],
   cedula: ["cedula", "cedula / documento", "documento", "numero de documento", "cc"],
@@ -139,6 +140,7 @@ export function classifyImportRows(rows: RawRow[], cedulasExistentes: Set<string
 
     const validation = validateUsuarioInput(
       {
+        tipo: "universidad",
         nombre,
         cedula: cedulaRaw,
         email: toText(cell(row, "email")),

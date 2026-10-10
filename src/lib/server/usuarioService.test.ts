@@ -10,6 +10,7 @@ const UNIVERSIDAD = "Universidad de Prueba Servicio";
 
 function input(overrides: Partial<UsuarioInput>): UsuarioInput {
   return {
+    tipo: "universidad",
     nombre: "Sin Nombre",
     cedula: `${PREFIX}000`,
     email: null,
@@ -37,6 +38,14 @@ beforeAll(async () => {
     input({ nombre: "Ana Prueba Activa", cedula: `${PREFIX}001` }),
     input({ nombre: "Beto Prueba Inactivo", cedula: `${PREFIX}002`, activo: false }),
     input({ nombre: "Carla Prueba Con Rostro", cedula: `${PREFIX}003` }),
+    input({
+      nombre: "Dora Prueba Natural",
+      cedula: `${PREFIX}004`,
+      tipo: "natural",
+      universidad: null,
+      entidad: null,
+      horasRequeridas: 0,
+    }),
   ]);
   const carla = await prisma.user.findUniqueOrThrow({ where: { cedula: `${PREFIX}003` } });
   await prisma.faceEmbedding.create({
@@ -54,6 +63,12 @@ describe("listUsuarios", () => {
     expect(await names({ estado: "activo" })).toEqual(["Ana Prueba Activa", "Carla Prueba Con Rostro"]);
     expect(await names({ estado: "inactivo" })).toEqual(["Beto Prueba Inactivo"]);
     expect(await names({ estado: "sin-rostro" })).toEqual(["Ana Prueba Activa"]);
+  });
+
+  it("filtra por tipo de usuario", async () => {
+    const { rows } = await listUsuarios({ q: "Dora Prueba Natural", tipo: "natural" });
+    expect(rows.map((row) => [row.nombre, row.tipo, row.universidad])).toEqual([["Dora Prueba Natural", "natural", null]]);
+    expect((await listUsuarios({ q: "Dora Prueba Natural", tipo: "universidad" })).rows).toEqual([]);
   });
 
   it("busca por nombre sin distinguir mayúsculas, y por cédula escrita con puntos", async () => {
@@ -99,4 +114,13 @@ describe("listCedulas", () => {
   it("devuelve solo las cédulas que ya existen", async () => {
     expect(await listCedulas([`${PREFIX}001`, `${PREFIX}999`])).toEqual(new Set([`${PREFIX}001`]));
   });
+});
+
+describe("insertUsuarios", () => {
+  it("inserta importaciones grandes sin pasar el límite de parámetros de SQL Server", async () => {
+    const inputs = Array.from({ length: 200 }, (_, i) =>
+      input({ nombre: `Lote ${i}`, cedula: `${PREFIX}5${String(i).padStart(3, "0")}` })
+    );
+    expect(await insertUsuarios(inputs)).toBe(200);
+  }, 20000);
 });

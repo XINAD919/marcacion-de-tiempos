@@ -4,12 +4,17 @@
  * directo a la coordinadora: español llano, sin códigos.
  */
 
+import { type TipoUsuario, isTipoUsuario } from "./tipoUsuario";
+
 export interface UsuarioInput {
+  tipo: TipoUsuario;
   nombre: string;
   cedula: string;
   email: string | null;
-  universidad: string;
-  entidad: string;
+  /** null para voluntarios naturales. */
+  universidad: string | null;
+  entidad: string | null;
+  /** 0 para voluntarios naturales: no tienen meta. */
   horasRequeridas: number;
   fechaInicio: Date | null;
   horaInicio: string | null;
@@ -18,6 +23,7 @@ export interface UsuarioInput {
 }
 
 export type UsuarioField =
+  | "tipo"
   | "nombre"
   | "cedula"
   | "email"
@@ -76,6 +82,12 @@ export function validateUsuarioInput(
 ): ValidationResult {
   const errors: UsuarioErrors = {};
 
+  const tipoRaw = clean(raw.tipo);
+  if (!isTipoUsuario(tipoRaw)) errors.tipo = "Elige el tipo de usuario.";
+  // Sin tipo válido se valida como practicante: es lo más exigente.
+  const tipo: TipoUsuario = isTipoUsuario(tipoRaw) ? tipoRaw : "universidad";
+  const esNatural = tipo === "natural";
+
   const nombre = clean(raw.nombre);
   if (!nombre) errors.nombre = "Falta el nombre";
 
@@ -85,27 +97,34 @@ export function validateUsuarioInput(
   const email = clean(raw.email);
   if (email && !EMAIL.test(email)) errors.email = "El correo no parece válido";
 
-  const universidad = clean(raw.universidad);
-  if (!universidad) errors.universidad = "Falta la universidad o colegio";
-
-  const entidad = clean(raw.entidad);
-  if (!entidad) errors.entidad = "Falta la entidad donde practica";
-
-  const horasRaw = clean(raw.horasRequeridas);
-  const horas = Number(horasRaw.replace(",", "."));
-  if (!horasRaw) errors.horasRequeridas = "Faltan las horas requeridas";
-  else if (!Number.isFinite(horas)) errors.horasRequeridas = "Horas exigidas sin número";
-  else if (!Number.isInteger(horas) || horas <= 0 || horas > 5000) {
-    errors.horasRequeridas = "Las horas deben ser un número entero entre 1 y 5000";
-  }
-
-  const fechaRaw = clean(raw.fechaInicio);
+  // Los naturales no tienen práctica: lo que llegue en estos campos se descarta.
+  let universidad: string | null = null;
+  let entidad: string | null = null;
+  let horas = 0;
   let fechaInicio: Date | null = null;
-  if (fechaRaw) {
-    fechaInicio = parseIsoDate(fechaRaw);
-    if (!fechaInicio) errors.fechaInicio = "La fecha de inicio no es válida";
-  } else if (requireFechaInicio) {
-    errors.fechaInicio = "Falta la fecha de inicio";
+
+  if (!esNatural) {
+    universidad = clean(raw.universidad);
+    if (!universidad) errors.universidad = tipo === "colegio" ? "Falta el colegio" : "Falta la universidad";
+
+    entidad = clean(raw.entidad);
+    if (!entidad) errors.entidad = "Falta la entidad donde practica";
+
+    const horasRaw = clean(raw.horasRequeridas);
+    horas = Number(horasRaw.replace(",", "."));
+    if (!horasRaw) errors.horasRequeridas = "Faltan las horas requeridas";
+    else if (!Number.isFinite(horas)) errors.horasRequeridas = "Horas exigidas sin número";
+    else if (!Number.isInteger(horas) || horas <= 0 || horas > 5000) {
+      errors.horasRequeridas = "Las horas deben ser un número entero entre 1 y 5000";
+    }
+
+    const fechaRaw = clean(raw.fechaInicio);
+    if (fechaRaw) {
+      fechaInicio = parseIsoDate(fechaRaw);
+      if (!fechaInicio) errors.fechaInicio = "La fecha de inicio no es válida";
+    } else if (requireFechaInicio) {
+      errors.fechaInicio = "Falta la fecha de inicio";
+    }
   }
 
   const horaInicio = clean(raw.horaInicio) || null;
@@ -113,10 +132,14 @@ export function validateUsuarioInput(
   if (horaInicio && !HHMM.test(horaInicio)) errors.horaInicio = "Escribe la hora como 08:00";
   if (horaFin && !HHMM.test(horaFin)) errors.horaFin = "Escribe la hora como 12:00";
   if (!errors.horaInicio && !errors.horaFin) {
-    if (horaInicio && !horaFin) errors.horaFin = "Falta la hora de fin del horario";
-    else if (!horaInicio && horaFin) errors.horaInicio = "Falta la hora de inicio del horario";
+    if (esNatural && !horaInicio) errors.horaInicio = "Falta la hora de llegada";
+    if (esNatural && !horaFin) errors.horaFin = "Falta la hora de salida";
+    if (!esNatural && horaInicio && !horaFin) errors.horaFin = "Falta la hora de fin del horario";
+    else if (!esNatural && !horaInicio && horaFin) errors.horaInicio = "Falta la hora de inicio del horario";
     else if (horaInicio && horaFin && minutesOf(horaFin) <= minutesOf(horaInicio)) {
-      errors.horaFin = "La hora de fin debe ser después del inicio";
+      errors.horaFin = esNatural
+        ? "La hora de salida debe ser después de la llegada"
+        : "La hora de fin debe ser después del inicio";
     }
   }
 
@@ -125,6 +148,7 @@ export function validateUsuarioInput(
   return {
     ok: true,
     value: {
+      tipo,
       nombre,
       cedula: cedula.value,
       email: email || null,

@@ -9,15 +9,16 @@ export interface UsuarioRow {
   id: string;
   nombre: string;
   cedula: string;
-  universidad: string;
-  entidad: string;
+  tipo: string;
+  universidad: string | null;
+  entidad: string | null;
   activo: boolean;
   fotos: number;
 }
 
 export const PAGE_SIZE = 20;
 
-function whereFor({ q, universidad, entidad, estado }: UsuarioFilters): Prisma.UserWhereInput {
+function whereFor({ q, tipo, universidad, entidad, estado }: UsuarioFilters): Prisma.UserWhereInput {
   const and: Prisma.UserWhereInput[] = [];
 
   const text = q?.trim();
@@ -31,6 +32,7 @@ function whereFor({ q, universidad, entidad, estado }: UsuarioFilters): Prisma.U
       ],
     });
   }
+  if (tipo) and.push({ tipo });
   if (universidad) and.push({ universidad });
   if (entidad) and.push({ entidad });
   if (estado === "activo") and.push({ activo: true });
@@ -54,6 +56,7 @@ export async function listUsuarios(filters: UsuarioFilters) {
         id: true,
         nombre: true,
         cedula: true,
+        tipo: true,
         universidad: true,
         entidad: true,
         activo: true,
@@ -72,12 +75,22 @@ export async function listUsuarios(filters: UsuarioFilters) {
 /** Valores existentes para los filtros y el autocompletado del formulario. */
 export async function listFilterOptions() {
   const [universidades, entidades] = await Promise.all([
-    prisma.user.findMany({ distinct: ["universidad"], select: { universidad: true }, orderBy: { universidad: "asc" } }),
-    prisma.user.findMany({ distinct: ["entidad"], select: { entidad: true }, orderBy: { entidad: "asc" } }),
+    prisma.user.findMany({
+      where: { universidad: { not: null } },
+      distinct: ["universidad"],
+      select: { universidad: true },
+      orderBy: { universidad: "asc" },
+    }),
+    prisma.user.findMany({
+      where: { entidad: { not: null } },
+      distinct: ["entidad"],
+      select: { entidad: true },
+      orderBy: { entidad: "asc" },
+    }),
   ]);
   return {
-    universidades: universidades.map((row) => row.universidad),
-    entidades: entidades.map((row) => row.entidad),
+    universidades: universidades.flatMap((row) => (row.universidad ? [row.universidad] : [])),
+    entidades: entidades.flatMap((row) => (row.entidad ? [row.entidad] : [])),
   };
 }
 
@@ -148,7 +161,10 @@ export async function listCedulas(cedulas: string[]): Promise<Set<string>> {
   return found;
 }
 
-/** Inserta en lotes; 10 columnas × 200 filas queda lejos del límite de 2100 parámetros. */
+/**
+ * Inserta en lotes de 200. Con 11 columnas eso pasa de los 2100 parámetros de
+ * SQL Server, pero Prisma parte la consulta por su cuenta (lo cubre un test).
+ */
 export async function insertUsuarios(inputs: UsuarioInput[]): Promise<number> {
   let inserted = 0;
   for (let i = 0; i < inputs.length; i += 200) {
