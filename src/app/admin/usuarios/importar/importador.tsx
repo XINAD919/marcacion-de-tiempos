@@ -88,6 +88,11 @@ export function Importador() {
                 <strong>Opcionales:</strong> Correo, Fecha de inicio (dd/mm/aaaa), Hora de inicio y
                 Hora de fin (08:00).
               </p>
+              <p>
+                <strong>Tipo:</strong> Universidad, Colegio o Natural; si no está, se asume
+                Universidad. Los voluntarios naturales solo llevan Nombre, Cédula, Hora de inicio y
+                Hora de fin.
+              </p>
               <a
                 href="/api/usuarios/importar/plantilla"
                 className="mt-2 inline-block font-semibold text-brand-red-ink hover:underline"

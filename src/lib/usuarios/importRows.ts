@@ -1,3 +1,4 @@
+import { parseTipoUsuario } from "./tipoUsuario";
 import { type UsuarioField, type UsuarioInput, validateUsuarioInput } from "./userInput";
 
 /** Fila tal como la entrega SheetJS: texto, número (seriales de Excel) o Date. */
@@ -116,9 +117,12 @@ export function classifyImportRows(rows: RawRow[], cedulasExistentes: Set<string
   }
 
   const hasNombre = columnKey.has("nombre") || columnKey.has("nombres");
+  // Con columna Tipo puede haber naturales, que no llevan datos de práctica;
+  // entonces cada fila se valida por su cuenta en vez de exigir la columna.
+  const required = columnKey.has("tipo") ? REQUIRED.filter(({ column }) => column === "cedula") : REQUIRED;
   const columnasFaltantes = [
     ...(hasNombre ? [] : ["Nombre"]),
-    ...REQUIRED.filter(({ column }) => !columnKey.has(column as Column)).map(({ label }) => label),
+    ...required.filter(({ column }) => !columnKey.has(column as Column)).map(({ label }) => label),
   ];
   const result: ImportClassification = { validos: [], duplicados: [], errores: [], columnasFaltantes };
   if (columnasFaltantes.length > 0) return result;
@@ -138,9 +142,21 @@ export function classifyImportRows(rows: RawRow[], cedulasExistentes: Set<string
       : `${toText(cell(row, "nombres"))} ${toText(cell(row, "apellidos"))}`;
     const cedulaRaw = toText(cell(row, "cedula")).trim();
 
+    const tipoRaw = toText(cell(row, "tipo")).trim();
+    const tipo = tipoRaw ? parseTipoUsuario(tipoRaw) : "universidad";
+    if (tipo === null) {
+      result.errores.push({
+        fila,
+        nombre: nombre.trim().replace(/\s+/g, " "),
+        cedula: cedulaRaw,
+        motivo: "El tipo debe ser Universidad, Colegio o Natural",
+      });
+      return;
+    }
+
     const validation = validateUsuarioInput(
       {
-        tipo: "universidad",
+        tipo,
         nombre,
         cedula: cedulaRaw,
         email: toText(cell(row, "email")),

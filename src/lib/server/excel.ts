@@ -54,6 +54,7 @@ export const TEMPLATE_HEADERS = [
   "Nombre",
   "Cédula",
   "Correo",
+  "Tipo",
   "Universidad / Colegio",
   "Entidad",
   "Horas requeridas",

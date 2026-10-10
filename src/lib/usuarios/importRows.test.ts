@@ -107,4 +107,42 @@ describe("classifyImportRows", () => {
     expect(result.columnasFaltantes).toEqual(["Cédula"]);
     expect(result.validos).toEqual([]);
   });
+
+  it("sin columna Tipo asume universidad", () => {
+    const result = classifyImportRows([header], new Set());
+    expect(result.validos[0]?.input.tipo).toBe("universidad");
+  });
+
+  it("lee la columna Tipo", () => {
+    const result = classifyImportRows([{ ...header, Tipo: "Colegio" }], new Set());
+    expect(result.validos[0]?.input.tipo).toBe("colegio");
+  });
+
+  it("explica un tipo que no reconoce", () => {
+    const result = classifyImportRows([{ ...header, Tipo: "Empresa" }], new Set());
+    expect(result.errores[0]?.motivo).toBe("El tipo debe ser Universidad, Colegio o Natural");
+  });
+
+  it("un archivo solo de naturales no necesita columnas de práctica", () => {
+    const result = classifyImportRows(
+      [{ Nombre: "Marta Gómez", "Cédula": "52123456", Tipo: "Natural", "Hora de inicio": "09:00", "Hora de fin": "13:00" }],
+      new Set()
+    );
+    expect(result.columnasFaltantes).toEqual([]);
+    expect(result.validos[0]?.input).toMatchObject({ tipo: "natural", universidad: null, horasRequeridas: 0 });
+  });
+
+  it("en una fila natural ignora la universidad escrita", () => {
+    const result = classifyImportRows(
+      [{ ...header, Tipo: "Voluntario", "Hora de inicio": "09:00", "Hora de fin": "13:00" }],
+      new Set()
+    );
+    expect(result.errores).toEqual([]);
+    expect(result.validos[0]?.input).toMatchObject({ tipo: "natural", universidad: null, entidad: null });
+  });
+
+  it("una fila natural sin horario es error", () => {
+    const result = classifyImportRows([{ ...header, Tipo: "Natural" }], new Set());
+    expect(result.errores[0]?.motivo).toContain("Falta la hora de llegada");
+  });
 });
