@@ -24,6 +24,7 @@ model User {
   fechaRegistro   DateTime        @default(now())
   embeddings      FaceEmbedding[]
   attendance      AttendanceLog[]
+  carnet          CarnetVirtual?
 
   @@index([nombre])
 }
@@ -46,6 +47,19 @@ model FaceEmbedding {
   fechaCaptura DateTime @default(now())
 
   @@index([userId])
+}
+
+// Carnet virtual: respaldo cuando el rostro no se reconoce. El QR codifica
+// `token`, no la cédula, para que no se pueda fabricar uno a partir de datos
+// públicos. Tabla aparte porque en SQL Server un UNIQUE sobre una columna
+// opcional de User solo admitiría un NULL.
+model CarnetVirtual {
+  userId    String    @id
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique @db.VarChar(64)
+  creadoEn  DateTime  @default(now())
+  enviadoEn DateTime?
+  enviadoA  String?
 }
 
 model AttendanceLog {
@@ -76,4 +90,20 @@ model Configuracion {
   jornadaMaximaHoras      Int      @default(9)
   actualizadoEn           DateTime @updatedAt
   actualizadoPor          String?
+}
+
+// Correo de salida (SMTP) para enviar carnets virtuales. Una sola fila (id = 1).
+// La contraseña se guarda cifrada con una clave derivada de AUTH_SECRET.
+model ConfiguracionSmtp {
+  id              Int      @id @default(1)
+  host            String
+  puerto          Int
+  // tls (puerto 465) | starttls (587) | ninguna (relay interno, puerto 25)
+  seguridad       String   @default("starttls") @db.VarChar(10)
+  usuario         String?
+  passwordCifrada String?  @db.VarChar(max)
+  remitenteNombre String
+  remitenteEmail  String
+  actualizadoEn   DateTime @updatedAt
+  actualizadoPor  String?
 }

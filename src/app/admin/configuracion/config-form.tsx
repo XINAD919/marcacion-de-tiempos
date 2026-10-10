@@ -16,7 +16,14 @@ function formatHours(minutes: number): string {
   return String(minutes / 60).replace(".", ",");
 }
 
-export function ConfigForm({ config, aside }: { config: ConfigValues; aside: React.ReactNode }) {
+interface ConfigFormProps {
+  config: ConfigValues;
+  aside: React.ReactNode;
+  /** Tarjetas con su propio formulario (p. ej. correo de salida), bajo las reglas. */
+  children?: React.ReactNode;
+}
+
+export function ConfigForm({ config, aside, children }: ConfigFormProps) {
   const [state, action, pending] = useActionState<ConfigFormState, FormData>(guardarConfiguracion, {
     status: "idle",
   });
@@ -53,90 +60,94 @@ export function ConfigForm({ config, aside }: { config: ConfigValues; aside: Rea
       />
 
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(320px,380px)] items-start gap-6 px-8 py-6">
-        <form id={FORM_ID} action={action} className="flex flex-col gap-4.5" noValidate>
-          <SettingsCard title="Marcación">
-            <SettingRow
-              htmlFor="toleranciaLlegadaMin"
-              title="Tolerancia de llegada"
-              description="Minutos después de la hora de inicio antes de contar como llegada tarde."
-              error={errors.toleranciaLlegadaMin}
-            >
-              <UnitInput
-                id="toleranciaLlegadaMin"
-                name="toleranciaLlegadaMin"
-                unit="minutos"
-                inputMode="numeric"
-                defaultValue={value("toleranciaLlegadaMin", String(config.toleranciaLlegadaMin))}
-                aria-invalid={Boolean(errors.toleranciaLlegadaMin) || undefined}
-                aria-describedby={describedBy("toleranciaLlegadaMin")}
-              />
-            </SettingRow>
+        <div className="flex min-w-0 flex-col gap-4.5">
+          <form id={FORM_ID} action={action} className="flex flex-col gap-4.5" noValidate>
+            <SettingsCard title="Marcación">
+              <SettingRow
+                htmlFor="toleranciaLlegadaMin"
+                title="Tolerancia de llegada"
+                description="Minutos después de la hora de inicio antes de contar como llegada tarde."
+                error={errors.toleranciaLlegadaMin}
+              >
+                <UnitInput
+                  id="toleranciaLlegadaMin"
+                  name="toleranciaLlegadaMin"
+                  unit="minutos"
+                  inputMode="numeric"
+                  defaultValue={value("toleranciaLlegadaMin", String(config.toleranciaLlegadaMin))}
+                  aria-invalid={Boolean(errors.toleranciaLlegadaMin) || undefined}
+                  aria-describedby={describedBy("toleranciaLlegadaMin")}
+                />
+              </SettingRow>
 
-            <SettingRow
-              htmlFor="minHorasAntesSalida"
-              title="Tiempo mínimo antes de la salida"
-              description="Si alguien intenta marcar salida antes de este tiempo desde su entrada, el kiosko no la registra y le pide hablar con coordinación."
-              error={errors.minHorasAntesSalida}
-            >
-              <UnitInput
-                id="minHorasAntesSalida"
-                name="minHorasAntesSalida"
-                unit="horas"
-                defaultValue={value("minHorasAntesSalida", formatHours(config.minMinutosAntesSalida))}
-                aria-invalid={Boolean(errors.minHorasAntesSalida) || undefined}
-                aria-describedby={describedBy("minHorasAntesSalida")}
-              />
-            </SettingRow>
+              <SettingRow
+                htmlFor="minHorasAntesSalida"
+                title="Tiempo mínimo antes de la salida"
+                description="Si alguien intenta marcar salida antes de este tiempo desde su entrada, el kiosko no la registra y le pide hablar con coordinación."
+                error={errors.minHorasAntesSalida}
+              >
+                <UnitInput
+                  id="minHorasAntesSalida"
+                  name="minHorasAntesSalida"
+                  unit="horas"
+                  defaultValue={value("minHorasAntesSalida", formatHours(config.minMinutosAntesSalida))}
+                  aria-invalid={Boolean(errors.minHorasAntesSalida) || undefined}
+                  aria-describedby={describedBy("minHorasAntesSalida")}
+                />
+              </SettingRow>
 
-            <SettingRow
-              title="Exigencia del reconocimiento"
-              description="Más estricto evita confusiones entre personas parecidas, pero fallará más a menudo y remitirá más gente a coordinación."
-              error={errors.exigenciaReconocimiento}
-            >
-              <SegmentedControl
-                name="exigenciaReconocimiento"
-                label="Exigencia del reconocimiento"
-                defaultValue={value("exigenciaReconocimiento", config.exigenciaReconocimiento)}
-                options={EXIGENCIAS.map((exigencia) => ({
-                  value: exigencia,
-                  label: EXIGENCIA_LABEL[exigencia],
-                }))}
-              />
-            </SettingRow>
+              <SettingRow
+                title="Exigencia del reconocimiento"
+                description="Más estricto evita confusiones entre personas parecidas, pero fallará más a menudo y remitirá más gente a coordinación."
+                error={errors.exigenciaReconocimiento}
+              >
+                <SegmentedControl
+                  name="exigenciaReconocimiento"
+                  label="Exigencia del reconocimiento"
+                  defaultValue={value("exigenciaReconocimiento", config.exigenciaReconocimiento)}
+                  options={EXIGENCIAS.map((exigencia) => ({
+                    value: exigencia,
+                    label: EXIGENCIA_LABEL[exigencia],
+                  }))}
+                />
+              </SettingRow>
 
-            <SettingRow
-              title="Intentos antes de pedir el respaldo"
-              description="Cuántas veces seguidas intenta reconocer el rostro antes de remitir al practicante a coordinación (y al QR del carnet, cuando exista)."
-              error={errors.intentosAntesQr}
-            >
-              <SegmentedControl
-                name="intentosAntesQr"
-                label="Intentos antes de pedir el respaldo"
-                defaultValue={value("intentosAntesQr", String(config.intentosAntesQr))}
-                options={intentos.map((n) => ({ value: String(n), label: String(n) }))}
-              />
-            </SettingRow>
-          </SettingsCard>
+              <SettingRow
+                title="Intentos antes de pedir el respaldo"
+                description="Cuántas veces seguidas intenta reconocer el rostro antes de remitir al practicante a coordinación y pedirle el QR de su carnet virtual."
+                error={errors.intentosAntesQr}
+              >
+                <SegmentedControl
+                  name="intentosAntesQr"
+                  label="Intentos antes de pedir el respaldo"
+                  defaultValue={value("intentosAntesQr", String(config.intentosAntesQr))}
+                  options={intentos.map((n) => ({ value: String(n), label: String(n) }))}
+                />
+              </SettingRow>
+            </SettingsCard>
 
-          <SettingsCard title="Jornada">
-            <SettingRow
-              htmlFor="jornadaMaximaHoras"
-              title="Jornada máxima por día"
-              description="Evita sumar horas de más por una salida marcada al día siguiente."
-              error={errors.jornadaMaximaHoras}
-            >
-              <UnitInput
-                id="jornadaMaximaHoras"
-                name="jornadaMaximaHoras"
-                unit="horas"
-                inputMode="numeric"
-                defaultValue={value("jornadaMaximaHoras", String(config.jornadaMaximaHoras))}
-                aria-invalid={Boolean(errors.jornadaMaximaHoras) || undefined}
-                aria-describedby={describedBy("jornadaMaximaHoras")}
-              />
-            </SettingRow>
-          </SettingsCard>
-        </form>
+            <SettingsCard title="Jornada">
+              <SettingRow
+                htmlFor="jornadaMaximaHoras"
+                title="Jornada máxima por día"
+                description="Evita sumar horas de más por una salida marcada al día siguiente."
+                error={errors.jornadaMaximaHoras}
+              >
+                <UnitInput
+                  id="jornadaMaximaHoras"
+                  name="jornadaMaximaHoras"
+                  unit="horas"
+                  inputMode="numeric"
+                  defaultValue={value("jornadaMaximaHoras", String(config.jornadaMaximaHoras))}
+                  aria-invalid={Boolean(errors.jornadaMaximaHoras) || undefined}
+                  aria-describedby={describedBy("jornadaMaximaHoras")}
+                />
+              </SettingRow>
+            </SettingsCard>
+          </form>
+
+          {children}
+        </div>
 
         {aside}
       </div>

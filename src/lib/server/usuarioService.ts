@@ -84,7 +84,10 @@ export async function listFilterOptions() {
 export async function getUsuario(id: string) {
   const user = await prisma.user.findUnique({
     where: { id },
-    include: { _count: { select: { embeddings: true } } },
+    include: {
+      _count: { select: { embeddings: true } },
+      carnet: { select: { enviadoEn: true, enviadoA: true } },
+    },
   });
   if (!user) return null;
   const { _count, ...rest } = user;

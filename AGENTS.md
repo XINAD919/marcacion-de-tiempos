@@ -62,6 +62,12 @@ reconocimiento facial falla.
   desde el CDN oficial (`https://cdn.sheetjs.com/xlsx-0.20.3/...`), no desde npm: la versión de
   npm quedó en 0.18.5 con vulnerabilidades conocidas. Los CSV se decodifican a mano (UTF-8 o
   Windows-1252) antes de pasarlos a SheetJS; ver `src/lib/server/excel.ts`.
+- **Correo:** `nodemailer` con el SMTP que se configura en Configuración (tabla
+  `configuracion_smtp`, no variables de entorno). La contraseña se guarda cifrada (AES-256-GCM,
+  clave derivada de `AUTH_SECRET`, ver `src/lib/server/secretBox.ts`): si `AUTH_SECRET` cambia,
+  hay que volver a escribirla. Los errores de nodemailer se traducen con `describeMailError`.
+- **Carnet virtual:** QR generado con `qrcode` en el servidor y leído en el kiosko con `jsqr`
+  sobre los cuadros de la misma webcam (sin lector USB).
 - **Despliegue:** reverse proxy con HTTPS interno (certificado propio vía CA local, ej. `mkcert`)
   dentro de la red de la fundación — requisito crítico, ver sección de arquitectura
 
@@ -145,6 +151,12 @@ src/
   fecha_inicio (DATE), hora_inicio / hora_fin ("HH:mm", horario asignado), activo, fecha_registro
 - `face_embeddings`: id, user_id (FK), embedding (VARBINARY), modelo, fecha_captura
 - `attendance_logs`: id, user_id (FK), tipo (IN/OUT), metodo (face/qr), confianza, device_id, marcado_en
+- `carnet_virtual`: user_id (PK/FK), token (único), creado_en, enviado_en, enviado_a. El QR
+  codifica `CARNET:<token>` (`src/lib/carnetQr.ts`), nunca la cédula; "enviar uno nuevo" cambia
+  el token y el QR anterior deja de servir. Es tabla aparte porque en SQL Server un `UNIQUE`
+  sobre una columna opcional solo admite un `NULL`.
+- `configuracion_smtp`: una sola fila (id = 1) con servidor, puerto, seguridad
+  (`starttls` | `tls` | `ninguna`), usuario, contraseña cifrada y remitente.
 - `configuracion`: una sola fila (id = 1) con las reglas de la maqueta 4g — tolerancia de llegada,
   tiempo mínimo antes de la salida, exigencia del reconocimiento, intentos antes del respaldo y
   jornada máxima por día. Sin fila se usan los valores por defecto de `src/lib/configRules.ts`.
@@ -269,7 +281,10 @@ Escala por contexto:
   del día y horas acumuladas.
 - El tipo de marcación se deduce de la última marcación del día; el practicante nunca lo elige.
 - El fallo ofrece el QR del carnet **en la misma pantalla**, con reintento automático y cuenta
-  regresiva visible. Nadie queda atrapado ni debe pedir ayuda para volver al estado inicial.
+  regresiva visible. Solo tras agotar "Intentos antes del respaldo": entonces la pantalla roja
+  muestra una vista en vivo de la cámara y el kiosko busca el QR del carnet virtual
+  (`useQrScanner`) durante 15 s (la maqueta decía 8 s; se amplió para alcanzar a sacar el
+  celular). La marcación por QR va a `POST /api/marcacion/qr` y queda con `metodo = "qr"`. Nadie queda atrapado ni debe pedir ayuda para volver al estado inicial.
 - Vuelve solo al estado de espera (~3 s). Cero interacción táctil o de teclado requerida.
 - **Unidades (implementación):** las maquetas del kiosko usan un lienzo de 1280×720. Dentro de
   `.kiosko-canvas`, `--u` es un píxel de ese lienzo escalado a la pantalla y `--spacing` vale
@@ -309,8 +324,12 @@ Escala por contexto:
       autocompletado, y la importación no valida "Entidad no existe"
 - [ ] "Cierre automático sin salida" (4g): hoy una entrada sin salida queda pendiente y no suma
 - [x] Brandear la app con el tema de shadcn/ui (tokens cableados en `globals.css`)
-- [ ] QR del carnet como respaldo en el kiosko (maqueta 1e): definir lector (USB tipo teclado vs.
-      cámara), qué codifica el QR y dónde se guarda; hoy la pantalla de fallo remite a coordinación
+- [x] QR del carnet como respaldo en el kiosko (maqueta 1e): carnet virtual por correo, leído
+      con la webcam del kiosko
+- [ ] Envío masivo de carnets virtuales (hoy uno por uno desde Editar usuario); con ~2.700
+      practicantes hay que respetar el límite de envíos por hora del proveedor SMTP
+- [ ] Confirmar con IT qué servidor SMTP usar y que la red interna permite la salida a él
+      (puertos 587/465) — sin eso no salen los carnets
 - [ ] Identificador por kiosko (`deviceId` hoy fijo en `kiosko-1`), ligado a Entidades y sedes (4f)
 
 ## Preferencias de desarrollo

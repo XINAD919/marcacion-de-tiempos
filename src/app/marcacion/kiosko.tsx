@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type FailureStreak, registerFailure } from "@/lib/client/failureStreak";
 import { type MarcacionResult, interpretMarcacionResponse } from "@/lib/client/marcacionResult";
 import { useFaceGuide } from "@/lib/client/useFaceGuide";
+import { useQrScanner } from "@/lib/client/useQrScanner";
 import { FaceOval } from "./_components/face-oval";
 import { KioskoHeader } from "./_components/kiosko-header";
 import {
@@ -27,8 +28,11 @@ const RETURN_AFTER_MS = {
   "salida-anticipada": 7000,
   // Un intento más: vuelve rápido a la cámara.
   reintento: 4000,
-  // Coincide con la cuenta regresiva "00:08" de la maqueta 1e.
-  fallo: 8000,
+  // La maqueta 1e muestra "00:08"; se amplía porque ahora en esta pantalla
+  // hay que sacar el celular y buscar el carnet virtual.
+  fallo: 15000,
+  // Carnet no válido: solo hay que leer a quién acudir.
+  carnet: 6000,
 } as const;
 
 // Si pasan más de 2 min entre fallos, probablemente es otra persona.
@@ -59,6 +63,7 @@ export function Kiosko({ initialIntentosAntesQr }: { initialIntentosAntesQr: num
   const photoUrlRef = useRef<string | null>(null);
   const failureStreakRef = useRef<FailureStreak | null>(null);
   const intentosAntesQrRef = useRef(initialIntentosAntesQr);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const releasePhoto = useCallback(() => {
     if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current);
@@ -84,6 +89,7 @@ export function Kiosko({ initialIntentosAntesQr }: { initialIntentosAntesQr: num
           return;
         }
         stream = mediaStream;
+        setStream(mediaStream);
         if (videoRef.current) videoRef.current.srcObject = mediaStream;
       })
       .catch(() => setCameraError("La cámara no está disponible"));
@@ -95,6 +101,31 @@ export function Kiosko({ initialIntentosAntesQr }: { initialIntentosAntesQr: num
   }, []);
 
   useEffect(() => releasePhoto, [releasePhoto]);
+
+  /** Pinta un resultado y fija cuándo vuelve sola la cámara. */
+  const present = useCallback((result: MarcacionResult, photoUrl: string | null, via: "face" | "qr") => {
+    const now = Date.now();
+    let failure: FailureInfo | null = null;
+    let returnAfter: number;
+
+    if (result.kind === "fallo" && via === "qr") {
+      // El QR ya era el respaldo: no suma a la racha, remite a coordinación.
+      returnAfter = RETURN_AFTER_MS.carnet;
+    } else if (result.kind === "fallo") {
+      if (result.intentosAntesQr) intentosAntesQrRef.current = result.intentosAntesQr;
+      const limit = intentosAntesQrRef.current;
+      const outcome = registerFailure(failureStreakRef.current, now, limit, FAILURE_STREAK_RESET_MS);
+      failureStreakRef.current = outcome.streak;
+      failure = { attempt: outcome.attempt, limit, offerFallback: outcome.offerFallback };
+      returnAfter = outcome.offerFallback ? RETURN_AFTER_MS.fallo : RETURN_AFTER_MS.reintento;
+    } else {
+      // Cualquier reconocimiento corta la racha de fallos.
+      failureStreakRef.current = null;
+      returnAfter = RETURN_AFTER_MS[result.kind];
+    }
+
+    setPhase({ name: "resultado", result, photoUrl, deadline: now + returnAfter, failure });
+  }, []);
 
   // Captura → envío → resultado.
   useEffect(() => {
@@ -128,37 +159,38 @@ export function Kiosko({ initialIntentosAntesQr }: { initialIntentosAntesQr: num
       }
       if (cancelled) return;
 
-      const now = Date.now();
-      let failure: FailureInfo | null = null;
-      let returnAfter: number;
-
-      if (result.kind === "fallo") {
-        if (result.intentosAntesQr) intentosAntesQrRef.current = result.intentosAntesQr;
-        const limit = intentosAntesQrRef.current;
-        const outcome = registerFailure(failureStreakRef.current, now, limit, FAILURE_STREAK_RESET_MS);
-        failureStreakRef.current = outcome.streak;
-        failure = { attempt: outcome.attempt, limit, offerFallback: outcome.offerFallback };
-        returnAfter = outcome.offerFallback ? RETURN_AFTER_MS.fallo : RETURN_AFTER_MS.reintento;
-      } else {
-        // Cualquier reconocimiento corta la racha de fallos.
-        failureStreakRef.current = null;
-        returnAfter = RETURN_AFTER_MS[result.kind];
-      }
-
-      setPhase({
-        name: "resultado",
-        result,
-        photoUrl: photoUrlRef.current,
-        deadline: now + returnAfter,
-        failure,
-      });
+      present(result, photoUrlRef.current, "face");
     }
 
     void mark();
     return () => {
       cancelled = true;
     };
-  }, [hasCaptured, captureFrame, backToCamera, releasePhoto]);
+  }, [hasCaptured, captureFrame, backToCamera, releasePhoto, present]);
+
+  // Respaldo (1e): tras agotar los intentos, busca el QR del carnet virtual en la cámara.
+  const offeringFallback = phase.name === "resultado" && phase.failure?.offerFallback === true;
+  const markWithQr = useCallback(
+    async (qr: string) => {
+      setPhase({ name: "enviando" });
+      releasePhoto();
+
+      let result: MarcacionResult;
+      try {
+        const response = await fetch("/api/marcacion/qr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ qr, deviceId: DEVICE_ID }),
+        });
+        result = interpretMarcacionResponse(response.status, await response.json().catch(() => null));
+      } catch {
+        result = { kind: "fallo", reason: "error" };
+      }
+      present(result, null, "qr");
+    },
+    [present, releasePhoto]
+  );
+  useQrScanner(videoRef, offeringFallback, markWithQr);
 
   // Vuelve sola al estado de espera: nadie tiene que tocar nada.
   useEffect(() => {
@@ -207,12 +239,18 @@ export function Kiosko({ initialIntentosAntesQr }: { initialIntentosAntesQr: num
         )}
       </div>
 
-      {phase.name === "resultado" && <ResultScreen phase={phase} />}
+      {phase.name === "resultado" && <ResultScreen phase={phase} stream={stream} />}
     </div>
   );
 }
 
-function ResultScreen({ phase }: { phase: Extract<Phase, { name: "resultado" }> }) {
+function ResultScreen({
+  phase,
+  stream,
+}: {
+  phase: Extract<Phase, { name: "resultado" }>;
+  stream: MediaStream | null;
+}) {
   const { result, photoUrl, deadline, failure } = phase;
   switch (result.kind) {
     case "entrada":
@@ -222,12 +260,6 @@ function ResultScreen({ phase }: { phase: Extract<Phase, { name: "resultado" }> 
     case "salida-anticipada":
       return <SalidaAnticipadaScreen result={result} deadline={deadline} />;
     case "fallo":
-      return (
-        <FalloScreen
-          reason={result.reason}
-          deadline={deadline}
-          failure={failure ?? { attempt: 1, limit: 1, offerFallback: true }}
-        />
-      );
+      return <FalloScreen reason={result.reason} deadline={deadline} failure={failure} stream={stream} />;
   }
 }

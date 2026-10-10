@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { firstName, formatClock, formatDuration, formatLateness, formatLongDate } from "@/lib/client/kioskoFormat";
 import { cn } from "@/lib/utils";
 import type { FailureReason, MarcacionResult } from "@/lib/client/marcacionResult";
@@ -204,6 +205,11 @@ const FAILURE_COPY: Record<FailureReason, { pill: string; title: string; body: s
     title: "No logramos ver tu rostro con claridad",
     body: "Ponte frente a la cámara, sin nadie más en la imagen, y acércate un poco.",
   },
+  "carnet-invalido": {
+    pill: "CARNET NO VÁLIDO",
+    title: "Este carnet ya no está vigente",
+    body: "Acércate a coordinación: registran tu marcación y te envían un carnet nuevo.",
+  },
   error: {
     pill: "NO SE REGISTRÓ",
     title: "No pudimos registrar tu marcación",
@@ -211,22 +217,48 @@ const FAILURE_COPY: Record<FailureReason, { pill: string; title: string; body: s
   },
 };
 
+/** Vista en vivo de la cámara para apuntar el QR del celular; espejada como el kiosko. */
+function QrPreview({ stream }: { stream: MediaStream }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.srcObject = stream;
+  }, [stream]);
+
+  return (
+    <div className="flex w-340 flex-none flex-col items-center gap-14">
+      <div className="relative h-300 w-340 overflow-hidden rounded-[calc(12*var(--u))] border-[length:calc(4*var(--u))] border-white bg-navy-2">
+        <video ref={videoRef} autoPlay muted playsInline className="size-full -scale-x-100 object-cover" />
+        <span
+          aria-hidden
+          className="absolute inset-0 m-auto size-180 rounded-[calc(10*var(--u))] border-[length:calc(3*var(--u))] border-dashed border-white"
+        />
+      </div>
+      <p className="ktext-20 text-center font-semibold">Pon el código dentro del recuadro</p>
+    </div>
+  );
+}
+
 /**
  * 1e — No reconocido: el rojo toma la pantalla y vuelve solo a la cámara.
- * Antes de llegar a "Intentos antes de pedir el QR" (4g) solo invita a
- * reintentar; al llegar, remite al respaldo (coordinación, mientras no haya QR).
+ * Antes de llegar a "Intentos antes de pedir el respaldo" (4g) solo invita a
+ * reintentar; al llegar, ofrece el QR del carnet virtual en la misma pantalla
+ * (el kiosko lo busca en la cámara mientras esta pantalla esté abierta).
+ * `failure` es `null` cuando el fallo vino del propio QR.
  */
 export function FalloScreen({
   reason,
   deadline,
   failure,
+  stream,
 }: {
   reason: FailureReason;
   deadline: number;
-  failure: FailureInfo;
+  failure: FailureInfo | null;
+  stream: MediaStream | null;
 }) {
   const seconds = useSecondsLeft(deadline);
   const copy = FAILURE_COPY[reason];
+  const offerFallback = failure?.offerFallback ?? false;
 
   return (
     <section role="alert" className="absolute inset-0 z-10 flex flex-col bg-brand-red">
@@ -234,8 +266,8 @@ export function FalloScreen({
         <span className="ktext-13 font-bold tracking-[0.24em]">BANCO DE ALIMENTOS</span>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center px-56">
-        <div className="max-w-900">
+      <div className="flex min-h-0 flex-1 items-center gap-52 px-56">
+        <div className="max-w-900 min-w-0 flex-1">
           <p className="mb-20 inline-flex items-center gap-10 rounded-full bg-black/20 px-20 py-8">
             <span
               aria-hidden
@@ -246,20 +278,30 @@ export function FalloScreen({
           <p className="ktext-64 leading-[1.05] font-extrabold tracking-[-0.03em] text-balance">
             {copy.title}
           </p>
-          <p className="ktext-26 mt-18 max-w-[30ch] leading-[1.45]">{copy.body}</p>
-          {failure.offerFallback && (
-            <p className="ktext-22 mt-28 max-w-[40ch] border-t border-white/30 pt-20 leading-[1.45] font-semibold">
-              Acércate a coordinación: tu marcación se registra manualmente.
-            </p>
+          {offerFallback ? (
+            <>
+              <p className="ktext-26 mt-18 max-w-[30ch] leading-[1.45] font-semibold">
+                Muestra a la cámara el código QR de tu carnet virtual.
+              </p>
+              <p className="ktext-22 mt-28 max-w-[40ch] border-t border-white/30 pt-20 leading-[1.45]">
+                Está en el correo que te envió coordinación. Si no lo tienes, acércate a
+                coordinación: tu marcación se registra manualmente.
+              </p>
+            </>
+          ) : (
+            <p className="ktext-26 mt-18 max-w-[30ch] leading-[1.45]">{copy.body}</p>
           )}
         </div>
+        {offerFallback && stream && <QrPreview stream={stream} />}
       </div>
 
       <div className="flex items-center justify-between bg-black/20 px-56 pt-18 pb-24">
         <p className="ktext-20 font-medium">
-          {failure.offerFallback
-            ? "Volviendo a la cámara automáticamente…"
-            : `Intento ${failure.attempt} de ${failure.limit} · Reintentando con la cámara…`}
+          {offerFallback
+            ? "Esperando el código QR…"
+            : failure
+              ? `Intento ${failure.attempt} de ${failure.limit} · Reintentando con la cámara…`
+              : "Volviendo a la cámara automáticamente…"}
         </p>
         <p className="ktext-20 font-semibold tabular-nums">00:{String(seconds).padStart(2, "0")}</p>
       </div>

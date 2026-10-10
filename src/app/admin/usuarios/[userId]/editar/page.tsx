@@ -14,6 +14,10 @@ export default async function EditarUsuarioPage({ params }: PageProps<"/admin/us
     <UsuarioForm
       userId={user.id}
       fotos={user.fotos}
+      carnet={{
+        enviadoEn: user.carnet?.enviadoEn?.toISOString() ?? null,
+        enviadoA: user.carnet?.enviadoA ?? null,
+      }}
       universidades={universidades}
       entidades={entidades}
       defaults={{

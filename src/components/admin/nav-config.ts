@@ -5,6 +5,8 @@ export interface NavItem {
   href: string | null;
   /** Prefijos de ruta que marcan el ítem como activo (por defecto, `href`). */
   match?: string[];
+  /** Se abre en otra pestaña (p. ej. el kiosko, que no tiene controles de admin para volver). */
+  newTab?: boolean;
 }
 
 export interface NavSection {
@@ -20,6 +22,7 @@ export const NAV_SECTIONS: NavSection[] = [
     id: "operacion",
     label: "OPERACIÓN",
     items: [
+      { id: "kiosko", label: "Kiosko de marcación", href: "/marcacion", newTab: true },
       { id: "marcaciones", label: "Marcaciones de hoy", href: null },
       { id: "usuarios", label: "Usuarios", href: "/admin/usuarios" },
       {

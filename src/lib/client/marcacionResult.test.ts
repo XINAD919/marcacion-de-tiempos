@@ -28,6 +28,13 @@ describe("interpretMarcacionResponse", () => {
     expect(result).toMatchObject({ kind: "entrada", tardeMin: 12 });
   });
 
+  it("distingue un carnet virtual no válido de un rostro no reconocido", () => {
+    expect(interpretMarcacionResponse(200, { matched: false, carnet: "invalido" })).toEqual({
+      kind: "fallo",
+      reason: "carnet-invalido",
+    });
+  });
+
   it("reconoce una salida anticipada que no se registró", () => {
     const result = interpretMarcacionResponse(200, {
       matched: true,

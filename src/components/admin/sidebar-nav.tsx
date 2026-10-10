@@ -48,6 +48,7 @@ export function SidebarNav() {
                 key={item.id}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
+                {...(item.newTab && { target: "_blank", rel: "noopener" })}
                 className={cn(
                   itemBase,
                   "outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
@@ -57,6 +58,15 @@ export function SidebarNav() {
                 )}
               >
                 {item.label}
+                {item.newTab && (
+                  <>
+                    {/* Espacio duro: la flecha nunca queda sola en otra línea. */}
+                    <span aria-hidden className="text-white/50">
+                      {"\u00a0↗"}
+                    </span>
+                    <span className="sr-only"> (se abre en otra pestaña)</span>
+                  </>
+                )}
               </Link>
             );
           })}

@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { estimateEndDate, parseIsoDate, type UsuarioField } from "@/lib/usuarios/userInput";
 import { type UsuarioFormState, guardarUsuario } from "./actions";
+import { type CarnetInfo, CarnetCard } from "./carnet-card";
 
 export interface UsuarioFormDefaults {
   nombre: string;
@@ -27,6 +28,8 @@ interface UsuarioFormProps {
   userId?: string;
   defaults: UsuarioFormDefaults;
   fotos: number;
+  /** Solo al editar: estado del carnet virtual. */
+  carnet?: CarnetInfo;
   universidades: string[];
   entidades: string[];
 }
@@ -80,7 +83,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-export function UsuarioForm({ userId, defaults, fotos, universidades, entidades }: UsuarioFormProps) {
+export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, entidades }: UsuarioFormProps) {
   const [state, action, pending] = useActionState<UsuarioFormState, FormData>(guardarUsuario, {
     status: "idle",
   });
@@ -296,6 +299,17 @@ export function UsuarioForm({ userId, defaults, fotos, universidades, entidades 
               </Link>
             )}
           </Card>
+
+          {userId && carnet && (
+            <Card title="Carnet virtual">
+              <CarnetCard
+                userId={userId}
+                email={defaults.email || null}
+                activo={defaults.activo === "true"}
+                carnet={carnet}
+              />
+            </Card>
+          )}
 
           <Card title="Estado">
             <SegmentedControl

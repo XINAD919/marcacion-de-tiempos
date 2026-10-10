@@ -10,6 +10,8 @@ export type FailureReason =
   | "no-reconocido"
   /** El servidor no encontró un rostro claro, o encontró varios. */
   | "rostro-no-legible"
+  /** QR del carnet reemplazado, de alguien inactivo o desconocido. */
+  | "carnet-invalido"
   /** Error de red o del servidor: no es culpa del practicante. */
   | "error";
 
@@ -24,12 +26,13 @@ export type MarcacionResult =
 
 const fail = (reason: FailureReason): MarcacionResult => ({ kind: "fallo", reason });
 
-/** Traduce la respuesta de POST /api/marcacion al estado que pinta el kiosko. */
+/** Traduce la respuesta de POST /api/marcacion (o /qr) al estado que pinta el kiosko. */
 export function interpretMarcacionResponse(status: number, body: unknown): MarcacionResult {
   if (status === 422) return fail("rostro-no-legible");
   if (status !== 200 || typeof body !== "object" || body === null) return fail("error");
 
   const data = body as Record<string, unknown>;
+  if (data.matched === false && data.carnet === "invalido") return fail("carnet-invalido");
   if (data.matched === false) {
     return typeof data.intentosAntesQr === "number"
       ? { kind: "fallo", reason: "no-reconocido", intentosAntesQr: data.intentosAntesQr }
