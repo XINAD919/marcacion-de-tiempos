@@ -13,6 +13,7 @@ export default async function NuevoUsuarioPage() {
       universidades={universidades}
       entidades={entidades}
       defaults={{
+        tipo: "universidad",
         nombre: "",
         cedula: "",
         email: "",

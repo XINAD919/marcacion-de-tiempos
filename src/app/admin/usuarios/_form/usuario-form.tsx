@@ -6,11 +6,13 @@ import { PageHeader } from "@/components/admin/page-header";
 import { SegmentedControl } from "@/components/admin/segmented-control";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TIPOS_USUARIO, TIPO_USUARIO_LABEL, type TipoUsuario, isTipoUsuario } from "@/lib/usuarios/tipoUsuario";
 import { estimateEndDate, parseIsoDate, type UsuarioField } from "@/lib/usuarios/userInput";
 import { type UsuarioFormState, guardarUsuario } from "./actions";
 import { type CarnetInfo, CarnetCard } from "./carnet-card";
 
 export interface UsuarioFormDefaults {
+  tipo: TipoUsuario;
   nombre: string;
   cedula: string;
   email: string;
@@ -98,6 +100,8 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
     horaInicio: values.horaInicio,
     horaFin: values.horaFin,
   });
+  const [tipo, setTipo] = useState<TipoUsuario>(isTipoUsuario(values.tipo) ? values.tipo : "universidad");
+  const esNatural = tipo === "natural";
   const fecha = parseIsoDate(plan.fechaInicio);
   const estimate = fecha
     ? estimateEndDate(fecha, Number(plan.horasRequeridas), plan.horaInicio || null, plan.horaFin || null)
@@ -112,6 +116,8 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
       noValidate
       onChange={(event) => {
         const data = new FormData(event.currentTarget);
+        const nextTipo = data.get("tipo");
+        if (isTipoUsuario(nextTipo)) setTipo(nextTipo);
         setPlan({
           fechaInicio: String(data.get("fechaInicio") ?? ""),
           horasRequeridas: String(data.get("horasRequeridas") ?? ""),
@@ -137,6 +143,26 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
 
       <div className="grid flex-1 grid-cols-[minmax(0,1fr)_minmax(280px,340px)] items-start gap-6 px-8 py-6">
         <div className="flex flex-col gap-4.5">
+          <Card title="Tipo de usuario">
+            <SegmentedControl
+              name="tipo"
+              label="Tipo de usuario"
+              defaultValue={tipo}
+              options={TIPOS_USUARIO.map((value) => ({ value, label: TIPO_USUARIO_LABEL[value] }))}
+            />
+            {errors.tipo ? (
+              <p id="tipo-error" className="mt-3 text-[12.5px] leading-[1.45] text-brand-red-ink">
+                {errors.tipo}
+              </p>
+            ) : (
+              <p className="mt-3 text-[13px] leading-normal text-muted-foreground">
+                {esNatural
+                  ? "Voluntario sin práctica formal: suma horas, pero sin meta ni institución."
+                  : "Practicante con convenio: tiene horas requeridas y fecha estimada de fin."}
+              </p>
+            )}
+          </Card>
+
           <Card title="Datos personales">
             <div className="grid grid-cols-2 gap-x-5 gap-y-4.5">
               <div className="col-span-2">
@@ -179,97 +205,137 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
             </div>
           </Card>
 
-          <Card title="Práctica">
-            <div className="grid grid-cols-2 gap-x-5 gap-y-4.5">
-              <Field id="universidad" label="Universidad / Colegio" required error={errors.universidad}>
-                <Input
+          {!esNatural && (
+            <Card title="Práctica">
+              <div className="grid grid-cols-2 gap-x-5 gap-y-4.5">
+                <Field
                   id="universidad"
-                  name="universidad"
-                  list="universidades"
-                  defaultValue={values.universidad}
-                  {...invalid("universidad")}
-                />
-              </Field>
-              <Field id="entidad" label="Entidad donde practica" required error={errors.entidad}>
-                <Input id="entidad" name="entidad" list="entidades" defaultValue={values.entidad} {...invalid("entidad")} />
-              </Field>
-              <Field
-                id="horasRequeridas"
-                label="Horas requeridas"
-                required
-                hint="Las define el convenio con la institución."
-                error={errors.horasRequeridas}
-              >
-                <Input
+                  label={tipo === "colegio" ? "Colegio" : "Universidad"}
+                  required
+                  error={errors.universidad}
+                >
+                  <Input
+                    id="universidad"
+                    name="universidad"
+                    list="universidades"
+                    defaultValue={values.universidad}
+                    {...invalid("universidad")}
+                  />
+                </Field>
+                <Field id="entidad" label="Entidad donde practica" required error={errors.entidad}>
+                  <Input id="entidad" name="entidad" list="entidades" defaultValue={values.entidad} {...invalid("entidad")} />
+                </Field>
+                <Field
                   id="horasRequeridas"
-                  name="horasRequeridas"
-                  inputMode="numeric"
-                  defaultValue={values.horasRequeridas}
-                  className="tabular-nums"
-                  {...invalid("horasRequeridas")}
-                />
-              </Field>
-              <Field
-                id="horaInicio"
-                label="Horario asignado (lunes a viernes)"
-                hint="Sirve para marcar llegadas tarde."
-                error={errors.horaInicio ?? errors.horaFin}
-              >
-                <div className="flex items-center gap-2">
+                  label="Horas requeridas"
+                  required
+                  hint="Las define el convenio con la institución."
+                  error={errors.horasRequeridas}
+                >
+                  <Input
+                    id="horasRequeridas"
+                    name="horasRequeridas"
+                    inputMode="numeric"
+                    defaultValue={values.horasRequeridas}
+                    className="tabular-nums"
+                    {...invalid("horasRequeridas")}
+                  />
+                </Field>
+                <Field
+                  id="horaInicio"
+                  label="Horario asignado (lunes a viernes)"
+                  hint="Sirve para marcar llegadas tarde."
+                  error={errors.horaInicio ?? errors.horaFin}
+                >
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="horaInicio"
+                      name="horaInicio"
+                      type="time"
+                      aria-label="Hora de inicio"
+                      defaultValue={plan.horaInicio}
+                      className="tabular-nums"
+                      {...invalid("horaInicio")}
+                    />
+                    <span aria-hidden className="text-navy/60">
+                      –
+                    </span>
+                    <Input
+                      id="horaFin"
+                      name="horaFin"
+                      type="time"
+                      aria-label="Hora de fin"
+                      defaultValue={plan.horaFin}
+                      className="tabular-nums"
+                      {...(errors.horaFin ? { "aria-invalid": true, "aria-describedby": "horaInicio-error" } : {})}
+                    />
+                  </div>
+                </Field>
+                <Field id="fechaInicio" label="Fecha de inicio" required error={errors.fechaInicio}>
+                  <Input
+                    id="fechaInicio"
+                    name="fechaInicio"
+                    type="date"
+                    defaultValue={values.fechaInicio}
+                    className="tabular-nums"
+                    {...invalid("fechaInicio")}
+                  />
+                </Field>
+                <Field id="fechaFin" label="Fecha estimada de fin" hint="Días hábiles al ritmo del horario; no descuenta festivos.">
+                  <p
+                    id="fechaFin"
+                    aria-live="polite"
+                    className="flex h-11 items-center rounded-lg border-[1.5px] border-input bg-bone-2 px-3.5 text-[14.5px] text-navy tabular-nums"
+                  >
+                    {estimate ? longDate.format(estimate) : <span className="text-navy/55">Completa horas, horario y fecha</span>}
+                  </p>
+                </Field>
+              </div>
+              <datalist id="universidades">
+                {universidades.map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
+              <datalist id="entidades">
+                {entidades.map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
+            </Card>
+          )}
+
+          {esNatural && (
+            <Card title="Horario">
+              <div className="grid grid-cols-2 gap-x-5 gap-y-4.5">
+                <Field id="horaInicio" label="Hora de llegada" required error={errors.horaInicio}>
                   <Input
                     id="horaInicio"
                     name="horaInicio"
                     type="time"
-                    aria-label="Hora de inicio"
-                    defaultValue={values.horaInicio}
+                    defaultValue={plan.horaInicio}
                     className="tabular-nums"
                     {...invalid("horaInicio")}
                   />
-                  <span aria-hidden className="text-navy/60">
-                    –
-                  </span>
+                </Field>
+                <Field
+                  id="horaFin"
+                  label="Hora de salida"
+                  required
+                  hint="Sirve para marcar llegadas tarde con la tolerancia de voluntarios."
+                  error={errors.horaFin}
+                >
                   <Input
                     id="horaFin"
                     name="horaFin"
                     type="time"
-                    aria-label="Hora de fin"
-                    defaultValue={values.horaFin}
+                    defaultValue={plan.horaFin}
                     className="tabular-nums"
-                    {...(errors.horaFin ? { "aria-invalid": true, "aria-describedby": "horaInicio-error" } : {})}
+                    {...invalid("horaFin")}
                   />
-                </div>
-              </Field>
-              <Field id="fechaInicio" label="Fecha de inicio" required error={errors.fechaInicio}>
-                <Input
-                  id="fechaInicio"
-                  name="fechaInicio"
-                  type="date"
-                  defaultValue={values.fechaInicio}
-                  className="tabular-nums"
-                  {...invalid("fechaInicio")}
-                />
-              </Field>
-              <Field id="fechaFin" label="Fecha estimada de fin" hint="Días hábiles al ritmo del horario; no descuenta festivos.">
-                <p
-                  id="fechaFin"
-                  aria-live="polite"
-                  className="flex h-11 items-center rounded-lg border-[1.5px] border-input bg-bone-2 px-3.5 text-[14.5px] text-navy tabular-nums"
-                >
-                  {estimate ? longDate.format(estimate) : <span className="text-navy/55">Completa horas, horario y fecha</span>}
-                </p>
-              </Field>
-            </div>
-            <datalist id="universidades">
-              {universidades.map((value) => (
-                <option key={value} value={value} />
-              ))}
-            </datalist>
-            <datalist id="entidades">
-              {entidades.map((value) => (
-                <option key={value} value={value} />
-              ))}
-            </datalist>
-          </Card>
+                </Field>
+              </div>
+            </Card>
+          )}
         </div>
 
         <div className="flex flex-col gap-4.5">

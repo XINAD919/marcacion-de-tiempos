@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { dbDateToIso, getUsuario, listFilterOptions } from "@/lib/server/usuarioService";
+import { isTipoUsuario } from "@/lib/usuarios/tipoUsuario";
 import { UsuarioForm } from "../../_form/usuario-form";
 
 export const metadata: Metadata = { title: "Editar usuario" };
@@ -21,11 +22,12 @@ export default async function EditarUsuarioPage({ params }: PageProps<"/admin/us
       universidades={universidades}
       entidades={entidades}
       defaults={{
+        tipo: isTipoUsuario(user.tipo) ? user.tipo : "universidad",
         nombre: user.nombre,
         cedula: user.cedula,
         email: user.email ?? "",
-        universidad: user.universidad,
-        entidad: user.entidad,
+        universidad: user.universidad ?? "",
+        entidad: user.entidad ?? "",
         // 0 es el valor por defecto de la migración para usuarios anteriores a 4c.
         horasRequeridas: user.horasRequeridas > 0 ? String(user.horasRequeridas) : "",
         fechaInicio: dbDateToIso(user.fechaInicio),
