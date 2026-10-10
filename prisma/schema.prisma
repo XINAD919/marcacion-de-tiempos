@@ -12,9 +12,13 @@ model User {
   cedula          String          @unique
   nombre          String
   email           String?
-  universidad     String
-  entidad         String
-  // Las define el convenio con la institución (maqueta 4c).
+  // universidad | colegio | natural (src/lib/usuarios/tipoUsuario.ts).
+  tipo            String          @default("universidad") @db.VarChar(20)
+  // Vacías para los voluntarios naturales; obligatorias para los demás
+  // (lo exige validateUsuarioInput, no la base).
+  universidad     String?
+  entidad         String?
+  // Las define el convenio con la institución (maqueta 4c). 0 en naturales.
   horasRequeridas Int             @default(0)
   fechaInicio     DateTime?       @db.Date
   // Horario asignado "HH:mm"; sirve para marcar llegadas tarde.
@@ -27,6 +31,7 @@ model User {
   carnet          CarnetVirtual?
 
   @@index([nombre])
+  @@index([tipo])
 }
 
 model Admin {
@@ -84,6 +89,9 @@ model Configuracion {
   // Tiempo mínimo entre la entrada y la salida del mismo día; antes de eso el
   // kiosko no registra la salida y remite a coordinación.
   minMinutosAntesSalida   Int      @default(60)
+  // Las mismas dos reglas, pero para los voluntarios naturales.
+  toleranciaLlegadaNaturalMin  Int @default(10)
+  minMinutosAntesSalidaNatural Int @default(60)
   // flexible | equilibrado | estricto → umbral de distancia facial.
   exigenciaReconocimiento String   @default("equilibrado") @db.VarChar(20)
   intentosAntesQr         Int      @default(3)
