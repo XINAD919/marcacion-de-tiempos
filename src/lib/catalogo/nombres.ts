@@ -24,9 +24,19 @@ export interface CatalogEntry {
   activa: boolean;
 }
 
-/** Nombre normalizado → entrada, para resolver las celdas del Excel. */
+/**
+ * Nombre normalizado → entrada, para resolver las celdas del Excel. Si dos
+ * entradas solo difieren en tildes o espacios (p. ej. una duplicada que se
+ * inactivó), gana la activa.
+ */
 export function buildCatalogIndex<T extends CatalogEntry>(items: readonly T[]): Map<string, T> {
-  return new Map(items.map((item) => [normalizeNombre(item.nombre), item]));
+  const index = new Map<string, T>();
+  for (const item of items) {
+    const key = normalizeNombre(item.nombre);
+    const previa = index.get(key);
+    if (!previa || (!previa.activa && item.activa)) index.set(key, item);
+  }
+  return index;
 }
 
 /**

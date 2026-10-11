@@ -43,6 +43,35 @@ describe("guardarInstitucion", () => {
     expect(repetida).toEqual({ ok: false, reason: "duplicado" });
   });
 
+  it("rechaza un nombre que solo cambia en tildes o espacios internos", async () => {
+    const original = await guardarInstitucion(null, {
+      nombre: `${NOMBRE} Antioquia`,
+      tipo: "universidad",
+      horasExigidas: 240,
+      activa: true,
+    });
+    expect(original.ok).toBe(true);
+    if (!original.ok) return;
+
+    for (const nombre of [`${NOMBRE} Antioquía`, `${NOMBRE}  Antioquia`]) {
+      expect(await guardarInstitucion(null, { nombre, tipo: "universidad", horasExigidas: 240, activa: true })).toEqual({
+        ok: false,
+        reason: "duplicado",
+      });
+    }
+    // Editar la misma conservando su nombre no es duplicado.
+    expect(
+      await guardarInstitucion(original.id, { nombre: `${NOMBRE} Antioquia`, tipo: "colegio", horasExigidas: 80, activa: true })
+    ).toEqual({ ok: true, id: original.id });
+
+    await guardarSede(null, { nombre: `${NOMBRE} Bodega Fontibón`, direccion: null, horaApertura: null, horaCierre: null, activa: true });
+    expect(
+      await guardarSede(null, { nombre: `${NOMBRE} Bodega Fontibon`, direccion: null, horaApertura: null, horaCierre: null, activa: true })
+    ).toEqual({ ok: false, reason: "duplicado" });
+    // La prueba de orden de sedes cuenta las que empiezan con NOMBRE.
+    await prisma.sede.deleteMany({ where: { nombre: `${NOMBRE} Bodega Fontibón` } });
+  });
+
   it("avisa si la que se edita ya no existe", async () => {
     expect(
       await guardarInstitucion(999_999_999, { nombre: `${NOMBRE} Fantasma`, tipo: "colegio", horasExigidas: 80, activa: true })

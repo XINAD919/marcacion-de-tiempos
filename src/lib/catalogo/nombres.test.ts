@@ -22,6 +22,14 @@ describe("buildCatalogIndex", () => {
     expect(index.get(normalizeNombre("bodega fontibon"))?.id).toBe(3);
     expect(index.get(normalizeNombre("Bodega Kennedy"))).toBeUndefined();
   });
+
+  it("si dos entradas se escriben igual salvo tildes, gana la activa aunque la inactiva venga después", () => {
+    const index = buildCatalogIndex([
+      { id: 1, nombre: "Universidad de Antioquia", activa: true },
+      { id: 2, nombre: "Universidad de Antioquía", activa: false },
+    ]);
+    expect(index.get(normalizeNombre("universidad de antioquia"))?.id).toBe(1);
+  });
 });
 
 describe("opcionesVisibles", () => {

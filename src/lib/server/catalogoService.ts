@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { type InstitucionInput, type InstitucionOpcion, isTipoInstitucion } from "@/lib/catalogo/institucion";
+import { normalizeNombre } from "@/lib/catalogo/nombres";
 import type { SedeInput, SedeOpcion } from "@/lib/catalogo/sede";
 import { prisma } from "./prisma";
 
@@ -69,7 +70,22 @@ function prismaCode(error: unknown): string | null {
   return error instanceof Prisma.PrismaClientKnownRequestError ? error.code : null;
 }
 
-async function guardar(run: () => Promise<{ id: number }>): Promise<GuardarCatalogoResult> {
+/**
+ * El UNIQUE de SQL Server ya distingue mayúsculas, pero no tildes ni espacios
+ * internos: "Antioquia" y "Antioquía" serían dos. Se comparan como lo hace la
+ * importación, para que no convivan dos que el Excel no puede distinguir.
+ */
+function nombreRepetido(nombre: string, otros: { nombre: string }[]): boolean {
+  const clave = normalizeNombre(nombre);
+  return otros.some((otro) => normalizeNombre(otro.nombre) === clave);
+}
+
+async function guardar(
+  nombre: string,
+  otros: () => Promise<{ nombre: string }[]>,
+  run: () => Promise<{ id: number }>
+): Promise<GuardarCatalogoResult> {
+  if (nombreRepetido(nombre, await otros())) return { ok: false, reason: "duplicado" };
   try {
     return { ok: true, id: (await run()).id };
   } catch (error) {
@@ -80,8 +96,11 @@ async function guardar(run: () => Promise<{ id: number }>): Promise<GuardarCatal
   }
 }
 
+// El catálogo es chico (decenas de entradas): comparar contra todas es barato.
+const otrasQue = (id: number | null) => ({ where: id === null ? {} : { id: { not: id } }, select: { nombre: true } });
+
 export function guardarInstitucion(id: number | null, input: InstitucionInput): Promise<GuardarCatalogoResult> {
-  return guardar(() =>
+  return guardar(input.nombre, () => prisma.institucion.findMany(otrasQue(id)), () =>
     id === null
       ? prisma.institucion.create({ data: input, select: { id: true } })
       : prisma.institucion.update({ where: { id }, data: input, select: { id: true } })
@@ -89,7 +108,7 @@ export function guardarInstitucion(id: number | null, input: InstitucionInput): 
 }
 
 export function guardarSede(id: number | null, input: SedeInput): Promise<GuardarCatalogoResult> {
-  return guardar(() =>
+  return guardar(input.nombre, () => prisma.sede.findMany(otrasQue(id)), () =>
     id === null
       ? prisma.sede.create({ data: input, select: { id: true } })
       : prisma.sede.update({ where: { id }, data: input, select: { id: true } })
