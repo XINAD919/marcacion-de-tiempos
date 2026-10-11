@@ -87,28 +87,6 @@ export async function listUsuarios(filters: UsuarioFilters) {
   return { rows, total, page, counts: { registrados, activos, inactivos: registrados - activos } };
 }
 
-/** Valores existentes para los filtros y el autocompletado del formulario. */
-export async function listFilterOptions() {
-  const [universidades, entidades] = await Promise.all([
-    prisma.user.findMany({
-      where: { universidad: { not: null } },
-      distinct: ["universidad"],
-      select: { universidad: true },
-      orderBy: { universidad: "asc" },
-    }),
-    prisma.user.findMany({
-      where: { entidad: { not: null } },
-      distinct: ["entidad"],
-      select: { entidad: true },
-      orderBy: { entidad: "asc" },
-    }),
-  ]);
-  return {
-    universidades: universidades.flatMap((row) => (row.universidad ? [row.universidad] : [])),
-    entidades: entidades.flatMap((row) => (row.entidad ? [row.entidad] : [])),
-  };
-}
-
 export async function getUsuario(id: string) {
   const user = await prisma.user.findUnique({
     where: { id },

@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { InstitucionCombobox } from "@/components/admin/institucion-combobox";
 import { PageHeader } from "@/components/admin/page-header";
 import { SegmentedControl } from "@/components/admin/segmented-control";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { InstitucionOpcion } from "@/lib/catalogo/institucion";
+import { etiquetaOpcion, opcionesVisibles } from "@/lib/catalogo/nombres";
+import type { SedeOpcion } from "@/lib/catalogo/sede";
+import { precargar } from "@/lib/usuarios/precarga";
 import { TIPOS_USUARIO, TIPO_USUARIO_LABEL, type TipoUsuario, isTipoUsuario } from "@/lib/usuarios/tipoUsuario";
 import { estimateEndDate, parseIsoDate, type UsuarioField } from "@/lib/usuarios/userInput";
 import { type UsuarioFormState, guardarUsuario } from "./actions";
@@ -16,8 +21,8 @@ export interface UsuarioFormDefaults {
   nombre: string;
   cedula: string;
   email: string;
-  universidad: string;
-  entidad: string;
+  institucionId: string;
+  sedeId: string;
   horasRequeridas: string;
   fechaInicio: string;
   horaInicio: string;
@@ -32,8 +37,8 @@ interface UsuarioFormProps {
   fotos: number;
   /** Solo al editar: estado del carnet virtual. */
   carnet?: CarnetInfo;
-  universidades: string[];
-  entidades: string[];
+  instituciones: InstitucionOpcion[];
+  sedes: SedeOpcion[];
 }
 
 const longDate = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long", year: "numeric" });
@@ -85,7 +90,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, entidades }: UsuarioFormProps) {
+export function UsuarioForm({ userId, defaults, fotos, carnet, instituciones, sedes }: UsuarioFormProps) {
   const [state, action, pending] = useActionState<UsuarioFormState, FormData>(guardarUsuario, {
     status: "idle",
   });
@@ -100,8 +105,56 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
     horaInicio: values.horaInicio,
     horaFin: values.horaFin,
   });
-  const [tipo, setTipo] = useState<TipoUsuario>(isTipoUsuario(values.tipo) ? values.tipo : "universidad");
+  const [tipo, setTipo] = useState<TipoUsuario>(isTipoUsuario(values.tipo) ? values.tipo : "practicante");
   const esNatural = tipo === "natural";
+
+  const formRef = useRef<HTMLFormElement>(null);
+  // Último valor que propuso el catálogo, para no pisar lo escrito a mano.
+  const propuesto = useRef<{ horas: string | null; horaInicio: string | null; horaFin: string | null }>({
+    horas: null,
+    horaInicio: null,
+    horaFin: null,
+  });
+  const institucionActual = Number(values.institucionId) || null;
+  const sedeActual = Number(values.sedeId) || null;
+
+  function readPlan(form: HTMLFormElement) {
+    const data = new FormData(form);
+    return {
+      fechaInicio: String(data.get("fechaInicio") ?? ""),
+      horasRequeridas: String(data.get("horasRequeridas") ?? ""),
+      horaInicio: String(data.get("horaInicio") ?? ""),
+      horaFin: String(data.get("horaFin") ?? ""),
+    };
+  }
+
+  /** Escribe la propuesta en el campo (no controlado) y recuerda qué se propuso. */
+  function proponer(
+    name: "horasRequeridas" | "horaInicio" | "horaFin",
+    key: "horas" | "horaInicio" | "horaFin",
+    valor: string | null
+  ) {
+    const input = formRef.current?.elements.namedItem(name);
+    if (!(input instanceof HTMLInputElement)) return;
+    const next = precargar(input.value, propuesto.current[key], valor);
+    if (next !== input.value) {
+      input.value = next;
+      propuesto.current[key] = next;
+    }
+  }
+
+  function aplicarInstitucion(institucion: InstitucionOpcion | null) {
+    if (!institucion || !formRef.current) return;
+    proponer("horasRequeridas", "horas", institucion.horasExigidas > 0 ? String(institucion.horasExigidas) : null);
+    setPlan(readPlan(formRef.current));
+  }
+
+  function aplicarSede(sede: SedeOpcion | null) {
+    if (!sede || !formRef.current) return;
+    proponer("horaInicio", "horaInicio", sede.horaApertura);
+    proponer("horaFin", "horaFin", sede.horaCierre);
+    setPlan(readPlan(formRef.current));
+  }
   const fecha = parseIsoDate(plan.fechaInicio);
   const estimate = fecha
     ? estimateEndDate(fecha, Number(plan.horasRequeridas), plan.horaInicio || null, plan.horaFin || null)
@@ -114,16 +167,11 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
     <form
       action={action}
       noValidate
+      ref={formRef}
       onChange={(event) => {
-        const data = new FormData(event.currentTarget);
-        const nextTipo = data.get("tipo");
+        const nextTipo = new FormData(event.currentTarget).get("tipo");
         if (isTipoUsuario(nextTipo)) setTipo(nextTipo);
-        setPlan({
-          fechaInicio: String(data.get("fechaInicio") ?? ""),
-          horasRequeridas: String(data.get("horasRequeridas") ?? ""),
-          horaInicio: String(data.get("horaInicio") ?? ""),
-          horaFin: String(data.get("horaFin") ?? ""),
-        });
+        setPlan(readPlan(event.currentTarget));
       }}
       className="flex min-h-full flex-col"
     >
@@ -208,28 +256,62 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
           {!esNatural && (
             <Card title="Práctica">
               <div className="grid grid-cols-2 gap-x-5 gap-y-4.5">
-                <Field
-                  id="universidad"
-                  label={tipo === "colegio" ? "Colegio" : "Universidad"}
-                  required
-                  error={errors.universidad}
-                >
-                  <Input
-                    id="universidad"
-                    name="universidad"
-                    list="universidades"
-                    defaultValue={values.universidad}
-                    {...invalid("universidad")}
+                <Field id="institucionId" label="Institución" required error={errors.institucionId}>
+                  <InstitucionCombobox
+                    id="institucionId"
+                    name="institucionId"
+                    instituciones={instituciones}
+                    defaultValue={institucionActual}
+                    invalid={Boolean(errors.institucionId)}
+                    onValueChange={aplicarInstitucion}
                   />
                 </Field>
-                <Field id="entidad" label="Entidad donde practica" required error={errors.entidad}>
-                  <Input id="entidad" name="entidad" list="entidades" defaultValue={values.entidad} {...invalid("entidad")} />
+                <Field
+                  id="sedeId"
+                  label="Sede"
+                  required
+                  error={errors.sedeId}
+                  hint={
+                    <>
+                      ¿No está en la lista?{" "}
+                      <Link
+                        href="/admin/instituciones-y-sedes"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-brand-red-ink hover:underline"
+                      >
+                        Agrégala en Instituciones y sedes
+                      </Link>{" "}
+                      (se abre en otra pestaña).
+                    </>
+                  }
+                >
+                  <div className="relative">
+                    <select
+                      id="sedeId"
+                      name="sedeId"
+                      defaultValue={values.sedeId}
+                      onChange={(event) => aplicarSede(sedes.find((sede) => String(sede.id) === event.target.value) ?? null)}
+                      {...invalid("sedeId")}
+                      className="h-11 w-full cursor-pointer appearance-none rounded-lg border-[1.5px] border-input bg-white pr-10 pl-3.5 text-[14.5px] text-navy outline-none focus-visible:border-navy focus-visible:ring-3 focus-visible:ring-navy/15 aria-invalid:border-brand-red aria-invalid:ring-3 aria-invalid:ring-brand-red/15"
+                    >
+                      <option value="">Elige una sede</option>
+                      {opcionesVisibles(sedes, sedeActual).map((sede) => (
+                        <option key={sede.id} value={sede.id}>
+                          {etiquetaOpcion(sede)}
+                        </option>
+                      ))}
+                    </select>
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-xs text-navy">
+                      ▾
+                    </span>
+                  </div>
                 </Field>
                 <Field
                   id="horasRequeridas"
                   label="Horas requeridas"
                   required
-                  hint="Las define el convenio con la institución."
+                  hint="Se proponen las de la institución; las define el convenio."
                   error={errors.horasRequeridas}
                 >
                   <Input
@@ -244,7 +326,7 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
                 <Field
                   id="horaInicio"
                   label="Horario asignado (lunes a viernes)"
-                  hint="Sirve para marcar llegadas tarde."
+                  hint="Se propone el de la sede. Sirve para marcar llegadas tarde."
                   error={errors.horaInicio ?? errors.horaFin}
                 >
                   <div className="flex items-center gap-2">
@@ -291,16 +373,6 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, universidades, en
                   </p>
                 </Field>
               </div>
-              <datalist id="universidades">
-                {universidades.map((value) => (
-                  <option key={value} value={value} />
-                ))}
-              </datalist>
-              <datalist id="entidades">
-                {entidades.map((value) => (
-                  <option key={value} value={value} />
-                ))}
-              </datalist>
             </Card>
           )}
 
