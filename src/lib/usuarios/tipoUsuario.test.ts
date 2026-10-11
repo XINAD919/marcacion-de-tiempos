@@ -37,18 +37,22 @@ describe("parseTipoUsuario", () => {
 });
 
 describe("describeAfiliacion", () => {
-  it("une universidad y entidad", () => {
-    expect(describeAfiliacion({ tipo: "universidad", universidad: "Universidad Nacional", entidad: "Sede Centro" })).toBe(
-      "Universidad Nacional · Sede Centro"
-    );
+  it("une institución y sede", () => {
+    expect(
+      describeAfiliacion({
+        tipo: "universidad",
+        institucion: { nombre: "Universidad Nacional" },
+        sede: { nombre: "Sede Centro" },
+      })
+    ).toBe("Universidad Nacional · Sede Centro");
   });
 
   it("para un voluntario natural dice el tipo", () => {
-    expect(describeAfiliacion({ tipo: "natural", universidad: null, entidad: null })).toBe("Voluntario natural");
+    expect(describeAfiliacion({ tipo: "natural", institucion: null, sede: null })).toBe("Voluntario natural");
   });
 
   it("omite las partes vacías", () => {
-    expect(describeAfiliacion({ tipo: "colegio", universidad: "Colegio San José", entidad: null })).toBe(
+    expect(describeAfiliacion({ tipo: "colegio", institucion: { nombre: "Colegio San José" }, sede: null })).toBe(
       "Colegio San José"
     );
   });

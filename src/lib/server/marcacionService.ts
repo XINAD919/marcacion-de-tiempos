@@ -1,9 +1,12 @@
-import type { User } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { type ConfigValues, reglasPara } from "@/lib/configRules";
 import { describeAfiliacion } from "@/lib/usuarios/tipoUsuario";
 import { earlyExitUntil, lateMinutes } from "./markingRules";
 import { prisma } from "./prisma";
+import { AFILIACION_INCLUDE } from "./usuarioService";
 import { sumWorkedMs } from "./workedTime";
+
+export type UsuarioMarcacion = Prisma.UserGetPayload<{ include: typeof AFILIACION_INCLUDE }>;
 
 function startOfToday(): Date {
   const now = new Date();
@@ -21,7 +24,7 @@ interface MarkInput {
  * Registra ENTRADA o SALIDA de alguien ya identificado (por rostro o por el
  * QR del carnet) y arma la respuesta que pinta el kiosko.
  */
-export async function registrarMarcacion(user: User, config: ConfigValues, { metodo, confianza, deviceId }: MarkInput) {
+export async function registrarMarcacion(user: UsuarioMarcacion, config: ConfigValues, { metodo, confianza, deviceId }: MarkInput) {
   // Tolerancia y mínimo antes de la salida dependen del tipo de usuario.
   const reglas = reglasPara(config, user.tipo);
   const lastLogToday = await prisma.attendanceLog.findFirst({
@@ -55,8 +58,6 @@ export async function registrarMarcacion(user: User, config: ConfigValues, { met
   const base = {
     matched: true,
     nombre: user.nombre,
-    universidad: user.universidad,
-    entidad: user.entidad,
     afiliacion: describeAfiliacion(user),
     hora: log.marcadoEn.toISOString(),
     tipo,

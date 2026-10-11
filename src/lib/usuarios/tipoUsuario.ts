@@ -1,7 +1,7 @@
 /**
  * Tipos de usuario: practicantes de universidad o colegio (con meta de horas
- * del convenio) y voluntarios naturales (sin meta, sin universidad ni
- * entidad). Módulo puro: lo usan el formulario, la importación, la marcación
+ * del convenio) y voluntarios naturales (sin meta, sin institución ni
+ * sede). Módulo puro: lo usan el formulario, la importación, la marcación
  * y el kiosko.
  */
 
@@ -43,8 +43,12 @@ export function parseTipoUsuario(raw: string): TipoUsuario | null {
   return TIPO_ALIASES[key] ?? null;
 }
 
-/** Línea bajo el nombre (kiosko, carnet, enrolamiento). */
-export function describeAfiliacion(user: { tipo: string; universidad: string | null; entidad: string | null }): string {
+interface ConNombre {
+  nombre: string;
+}
+
+/** Línea bajo el nombre (kiosko, carnet, enrolamiento): "Institución · Sede". */
+export function describeAfiliacion(user: { tipo: string; institucion: ConNombre | null; sede: ConNombre | null }): string {
   if (user.tipo === "natural") return TIPO_USUARIO_LABEL.natural;
-  return [user.universidad, user.entidad].filter((part) => part && part.trim()).join(" · ");
+  return [user.institucion?.nombre, user.sede?.nombre].filter((part) => part && part.trim()).join(" · ");
 }

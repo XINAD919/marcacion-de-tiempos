@@ -6,6 +6,7 @@ import { carnetQrContent } from "@/lib/carnetQr";
 import { describeAfiliacion } from "@/lib/usuarios/tipoUsuario";
 import { sendMail } from "./mailer";
 import { prisma } from "./prisma";
+import { AFILIACION_INCLUDE } from "./usuarioService";
 
 // Los correos no ven las variables de globals.css: estilos inline con los
 // valores de la paleta de AGENTS.md.
@@ -35,7 +36,10 @@ export async function ensureCarnetToken(userId: string): Promise<string> {
 
 /** Usuario activo dueño del token, o `null` si el carnet no existe o fue reemplazado. */
 export async function findUserByCarnetToken(token: string) {
-  const carnet = await prisma.carnetVirtual.findUnique({ where: { token }, include: { user: true } });
+  const carnet = await prisma.carnetVirtual.findUnique({
+    where: { token },
+    include: { user: { include: AFILIACION_INCLUDE } },
+  });
   return carnet?.user.activo ? carnet.user : null;
 }
 
@@ -62,8 +66,8 @@ export interface CarnetData {
   nombre: string;
   cedula: string;
   tipo: string;
-  universidad: string | null;
-  entidad: string | null;
+  institucion: { nombre: string } | null;
+  sede: { nombre: string } | null;
 }
 
 /**
@@ -135,7 +139,7 @@ function renderCarnetText(data: CarnetData): string {
 }
 
 async function carnetData(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: AFILIACION_INCLUDE });
   if (!user) return null;
   return { user, token: await ensureCarnetToken(userId) };
 }
@@ -161,7 +165,7 @@ export type SendCarnetResult =
  * Los errores de SMTP se propagan (ver `describeMailError`).
  */
 export async function sendCarnet(userId: string, { renovar = false } = {}): Promise<SendCarnetResult> {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: AFILIACION_INCLUDE });
   if (!user) return { ok: false, reason: "no-encontrado" };
   if (!user.activo) return { ok: false, reason: "inactivo" };
   if (!user.email) return { ok: false, reason: "sin-correo" };

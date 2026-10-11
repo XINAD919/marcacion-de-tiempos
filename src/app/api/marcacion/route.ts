@@ -8,6 +8,7 @@ import { matchThresholdFor } from "@/lib/configRules";
 import { getConfig } from "@/lib/server/config";
 import { findMatch } from "@/lib/server/faceMatcher";
 import { registrarMarcacion } from "@/lib/server/marcacionService";
+import { AFILIACION_INCLUDE } from "@/lib/server/usuarioService";
 import { prisma } from "@/lib/server/prisma";
 
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png"]);
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ matched: false, intentosAntesQr: config.intentosAntesQr });
   }
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: match.userId } });
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: match.userId }, include: AFILIACION_INCLUDE });
   console.info(
     `[marcacion] Coincidencia: userId=${user.id} distance=${match.distance} deviceId=${deviceId}`
   );

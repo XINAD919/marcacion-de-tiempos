@@ -18,6 +18,12 @@ export interface UsuarioRow {
 
 export const PAGE_SIZE = 20;
 
+/** Lo necesario para describir la afiliación (kiosko, carnet, enrolamiento). */
+export const AFILIACION_INCLUDE = {
+  institucion: { select: { nombre: true } },
+  sede: { select: { nombre: true } },
+} as const satisfies Prisma.UserInclude;
+
 function whereFor({ q, tipo, universidad, entidad, estado }: UsuarioFilters): Prisma.UserWhereInput {
   const and: Prisma.UserWhereInput[] = [];
 
@@ -98,6 +104,7 @@ export async function getUsuario(id: string) {
   const user = await prisma.user.findUnique({
     where: { id },
     include: {
+      ...AFILIACION_INCLUDE,
       _count: { select: { embeddings: true } },
       carnet: { select: { enviadoEn: true, enviadoA: true } },
     },

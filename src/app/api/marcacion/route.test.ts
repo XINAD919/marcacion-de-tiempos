@@ -25,6 +25,9 @@ function buildRequest(photo: Buffer, deviceId: string): Request {
 }
 
 let userId = "";
+let institucionId: number;
+let sedeId: number;
+const SUFIJO = "Prueba Marcación";
 let savedConfig: Awaited<ReturnType<typeof prisma.configuracion.findUnique>> = null;
 
 /** Fija las reglas de 4g para una prueba; afterAll restaura las originales. */
@@ -46,13 +49,25 @@ beforeAll(async () => {
 
   const enrollmentDescriptor = await getFaceDescriptor(await loadFixture("persona-a-2.jpg"));
 
+  // upsert: si una corrida anterior se cortó, el nombre ya existe (UNIQUE).
+  institucionId = (
+    await prisma.institucion.upsert({
+      where: { nombre: `Universidad de ${SUFIJO}` },
+      create: { nombre: `Universidad de ${SUFIJO}`, tipo: "universidad", horasExigidas: 240 },
+      update: {},
+    })
+  ).id;
+  sedeId = (
+    await prisma.sede.upsert({ where: { nombre: `Sede de ${SUFIJO}` }, create: { nombre: `Sede de ${SUFIJO}` }, update: {} })
+  ).id;
+
   const user = await prisma.user.create({
     data: {
       cedula: "TEST-0001",
       nombre: "Persona A de Prueba",
       email: "persona-a@example.com",
-      universidad: "Universidad de Prueba",
-      entidad: "Entidad de Prueba",
+      institucionId,
+      sedeId,
     },
   });
   userId = user.id;
@@ -90,6 +105,8 @@ afterAll(async () => {
   if (!userId) return;
   await prisma.faceEmbedding.deleteMany({ where: { userId } });
   await prisma.user.delete({ where: { id: userId } });
+  await prisma.institucion.deleteMany({ where: { nombre: `Universidad de ${SUFIJO}` } });
+  await prisma.sede.deleteMany({ where: { nombre: `Sede de ${SUFIJO}` } });
 });
 
 describe("POST /api/marcacion", () => {
@@ -107,14 +124,14 @@ describe("POST /api/marcacion", () => {
   );
 
   it(
-    "incluye universidad y entidad para la pantalla de éxito del kiosko",
+    "incluye la afiliación (institución · sede) para la pantalla de éxito del kiosko",
     async () => {
       const response = await POST(buildRequest(await loadFixture("persona-a-1.jpg"), "kiosko-test"));
       const body = await response.json();
 
-      expect(body.universidad).toBe("Universidad de Prueba");
-      expect(body.entidad).toBe("Entidad de Prueba");
-      expect(body.afiliacion).toBe("Universidad de Prueba · Entidad de Prueba");
+      expect(body.afiliacion).toBe(`Universidad de ${SUFIJO} · Sede de ${SUFIJO}`);
+      expect(body).not.toHaveProperty("universidad");
+      expect(body).not.toHaveProperty("entidad");
     },
     20000
   );
