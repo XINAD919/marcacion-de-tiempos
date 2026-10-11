@@ -12,12 +12,9 @@ model User {
   cedula          String          @unique
   nombre          String
   email           String?
-  // universidad | colegio | natural (src/lib/usuarios/tipoUsuario.ts).
-  tipo            String          @default("universidad") @db.VarChar(20)
-  // Vacías para los voluntarios naturales; obligatorias para los demás
-  // (lo exige validateUsuarioInput, no la base).
-  universidad     String?
-  entidad         String?
+  // practicante | natural (src/lib/usuarios/tipoUsuario.ts). Universidad /
+  // técnica / colegio lo dice la institución.
+  tipo            String          @default("practicante") @db.VarChar(20)
   // Catálogo de la maqueta 4f. NULL para voluntarios naturales.
   institucionId   Int?
   institucion     Institucion?    @relation(fields: [institucionId], references: [id])

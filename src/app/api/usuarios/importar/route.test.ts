@@ -64,7 +64,7 @@ describe("POST /api/usuarios/importar", () => {
 
   it("inserta las filas válidas y reporta duplicados y errores con fila y motivo", async () => {
     await prisma.user.create({
-      data: { nombre: "Ya Existía", cedula: `${PREFIX}009`, universidad: "U", entidad: "E" },
+      data: { nombre: "Ya Existía", cedula: `${PREFIX}009` },
     });
 
     const response = await POST(

@@ -101,7 +101,7 @@ describe("reglasPara", () => {
   };
 
   it("los practicantes usan las reglas generales", () => {
-    expect(reglasPara(config, "universidad")).toEqual({ toleranciaLlegadaMin: 10, minMinutosAntesSalida: 60 });
+    expect(reglasPara(config, "practicante")).toEqual({ toleranciaLlegadaMin: 10, minMinutosAntesSalida: 60 });
     expect(reglasPara(config, "colegio")).toEqual({ toleranciaLlegadaMin: 10, minMinutosAntesSalida: 60 });
   });
 

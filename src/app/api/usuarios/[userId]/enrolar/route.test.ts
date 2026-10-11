@@ -31,8 +31,6 @@ async function createTestUser(cedula: string) {
       cedula,
       nombre: "Persona de Prueba",
       email: `${cedula}@example.com`,
-      universidad: "Universidad de Prueba",
-      entidad: "Entidad de Prueba",
     },
   });
 }

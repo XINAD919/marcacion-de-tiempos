@@ -20,8 +20,6 @@ beforeAll(async () => {
     data: {
       cedula: "TEST-QR-0001",
       nombre: "Persona QR de Prueba",
-      universidad: "Universidad de Prueba",
-      entidad: "Entidad de Prueba",
     },
   });
   userId = user.id;

@@ -5,9 +5,7 @@ describe("interpretMarcacionResponse", () => {
   const entrada = {
     matched: true,
     nombre: "Laura Catalina Rodríguez",
-    universidad: "Universidad Nacional",
-    entidad: "Trabajo Social",
-    afiliacion: "Universidad Nacional · Trabajo Social",
+    afiliacion: "Universidad Nacional · Sede Centro",
     hora: "2026-09-14T12:58:00.000Z",
     tipo: "IN",
   };
@@ -17,17 +15,15 @@ describe("interpretMarcacionResponse", () => {
     expect(result).toEqual({
       kind: "entrada",
       nombre: "Laura Catalina Rodríguez",
-      afiliacion: "Universidad Nacional · Trabajo Social",
+      afiliacion: "Universidad Nacional · Sede Centro",
       hora: new Date("2026-09-14T12:58:00.000Z"),
       tardeMin: null,
     });
   });
 
-  it("acepta a un voluntario natural sin universidad ni entidad", () => {
+  it("acepta a un voluntario natural sin institución ni sede", () => {
     const result = interpretMarcacionResponse(200, {
       ...entrada,
-      universidad: null,
-      entidad: null,
       afiliacion: "Voluntario natural",
     });
     expect(result).toMatchObject({ kind: "entrada", afiliacion: "Voluntario natural" });
