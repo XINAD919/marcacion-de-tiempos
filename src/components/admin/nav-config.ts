@@ -43,7 +43,7 @@ export const NAV_SECTIONS: NavSection[] = [
     id: "configuracion",
     label: "CONFIGURACIÓN",
     items: [
-      { id: "entidades-sedes", label: "Entidades y sedes", href: null },
+      { id: "instituciones-sedes", label: "Instituciones y sedes", href: "/admin/instituciones-y-sedes" },
       {
         id: "configuracion",
         label: "Configuración",
