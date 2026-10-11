@@ -2,6 +2,10 @@
 
 Fecha: 2026-10-10 · Estado: aprobado en conversación, pendiente de revisión escrita
 
+> **Reemplazado en parte por** `2026-10-10-instituciones-y-sedes-design.md`: `User.tipo` es ahora
+> `practicante | natural` y universidad / técnica / colegio lo dice la institución. Las reglas
+> propias de los naturales (tolerancia y salida mínima) siguen vigentes.
+
 ## Contexto
 
 Hoy todos los usuarios son "practicantes" con universidad/colegio, entidad, horas requeridas,

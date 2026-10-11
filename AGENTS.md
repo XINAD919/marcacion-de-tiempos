@@ -148,10 +148,15 @@ src/
 
 ## Modelo de datos (borrador, SQL Server)
 
-- `users`: id, cedula, nombre, email (opcional), tipo (`universidad` | `colegio` | `natural`,
-  ver `src/lib/usuarios/tipoUsuario.ts`), universidad y entidad (NULL en naturales),
+- `users`: id, cedula, nombre, email (opcional), tipo (`practicante` | `natural`, ver
+  `src/lib/usuarios/tipoUsuario.ts`), institucion_id y sede_id (FK; NULL en naturales),
   horas_requeridas (0 en naturales), fecha_inicio (DATE), hora_inicio / hora_fin ("HH:mm",
   horario asignado; obligatorio en naturales), activo, fecha_registro
+- `institucion`: id, nombre (único), tipo (`universidad` | `tecnica` | `colegio`),
+  horas_exigidas (valor por defecto de las horas requeridas al asignarla), activa. No se borra:
+  se inactiva.
+- `sede`: id, nombre (único), direccion, hora_apertura / hora_cierre ("HH:mm", horario por
+  defecto de sus practicantes), activa. No se borra: se inactiva.
 - `face_embeddings`: id, user_id (FK), embedding (VARBINARY), modelo, fecha_captura
 - `attendance_logs`: id, user_id (FK), tipo (IN/OUT), metodo (face/qr), confianza, device_id, marcado_en
 - `carnet_virtual`: user_id (PK/FK), token (único), creado_en, enviado_en, enviado_a. El QR
@@ -165,6 +170,11 @@ src/
   jornada máxima por día. Sin fila se usan los valores por defecto de `src/lib/configRules.ts`.
   Tolerancia de llegada y tiempo mínimo antes de la salida tienen además una versión para
   voluntarios naturales (`reglasPara` en `src/lib/configRules.ts`).
+
+Universidad / técnica / colegio no es un tipo de usuario: lo dice la institución (maqueta 4f,
+`src/lib/catalogo/`). La interfaz dice siempre **Institución** y **Sede**; «Entidad» solo sobrevive
+como alias de columna al importar. La importación nunca crea instituciones ni sedes: rechaza la
+fila con el nombre que no encontró.
 
 Las horas cumplidas se calculan a partir de `attendance_logs` (pares IN/OUT), no se guardan como
 campo persistente, para evitar inconsistencias. Lo mismo la llegada tarde: se deriva del horario
@@ -328,8 +338,12 @@ Escala por contexto:
 - [ ] Vista de detalle del practicante con historial (maqueta 4d)
 - [ ] Roles de administradores (coordinación / apoyo / consulta, maqueta 4g) — confirmar con la
       cliente; hoy todo administrador puede todo
-- [ ] Catálogo de Entidades y sedes (4f): hoy universidad y entidad son texto libre con
-      autocompletado, y la importación no valida "Entidad no existe"
+- [x] Catálogo de Instituciones y sedes (4f): desplegables en formulario y filtros; la
+      importación valida contra el catálogo
+- [ ] Estado de los kioskos en las tarjetas de sede (4f): requiere el identificador por kiosko
+- [ ] Fusionar instituciones o sedes duplicadas (reasignar sus usuarios) cuando haya datos reales
+- [ ] Días de atención de la sede (la maqueta muestra L–V / L–S)
+- [ ] Reportes por institución y sede (módulo 3)
 - [ ] "Cierre automático sin salida" (4g): hoy una entrada sin salida queda pendiente y no suma
 - [x] Brandear la app con el tema de shadcn/ui (tokens cableados en `globals.css`)
 - [x] QR del carnet como respaldo en el kiosko (maqueta 1e): carnet virtual por correo, leído
@@ -338,7 +352,7 @@ Escala por contexto:
       practicantes hay que respetar el límite de envíos por hora del proveedor SMTP
 - [ ] Confirmar con IT qué servidor SMTP usar y que la red interna permite la salida a él
       (puertos 587/465) — sin eso no salen los carnets
-- [ ] Identificador por kiosko (`deviceId` hoy fijo en `kiosko-1`), ligado a Entidades y sedes (4f)
+- [ ] Identificador por kiosko (`deviceId` hoy fijo en `kiosko-1`), ligado a Instituciones y sedes (4f)
 
 ## Preferencias de desarrollo
 
