@@ -18,6 +18,11 @@ model User {
   // (lo exige validateUsuarioInput, no la base).
   universidad     String?
   entidad         String?
+  // Catálogo de la maqueta 4f. NULL para voluntarios naturales.
+  institucionId   Int?
+  institucion     Institucion?    @relation(fields: [institucionId], references: [id])
+  sedeId          Int?
+  sede            Sede?           @relation(fields: [sedeId], references: [id])
   // Las define el convenio con la institución (maqueta 4c). 0 en naturales.
   horasRequeridas Int             @default(0)
   fechaInicio     DateTime?       @db.Date
@@ -32,6 +37,8 @@ model User {
 
   @@index([nombre])
   @@index([tipo])
+  @@index([institucionId])
+  @@index([sedeId])
 }
 
 model Admin {
@@ -114,4 +121,31 @@ model ConfiguracionSmtp {
   remitenteEmail  String
   actualizadoEn   DateTime @updatedAt
   actualizadoPor  String?
+}
+
+// Instituciones educativas (maqueta 4f). El tipo universidad | tecnica | colegio
+// vive aquí, no en el usuario (src/lib/catalogo/institucion.ts). No se borran:
+// se inactivan.
+model Institucion {
+  id            Int     @id @default(autoincrement())
+  // La intercalación por defecto de SQL Server no distingue mayúsculas: el
+  // UNIQUE impide "universidad nacional" si ya existe "Universidad Nacional".
+  nombre        String  @unique @db.NVarChar(150)
+  tipo          String  @db.VarChar(20)
+  // Se propone como horasRequeridas al asignarla; cada usuario conserva el suyo.
+  horasExigidas Int     @default(0)
+  activa        Boolean @default(true)
+  usuarios      User[]
+}
+
+// Sedes: lugares físicos donde se practica (maqueta 4f). No se borran: se inactivan.
+model Sede {
+  id           Int     @id @default(autoincrement())
+  nombre       String  @unique @db.NVarChar(150)
+  direccion    String? @db.NVarChar(200)
+  // Horario por defecto de sus practicantes, "HH:mm".
+  horaApertura String? @db.VarChar(5)
+  horaCierre   String? @db.VarChar(5)
+  activa       Boolean @default(true)
+  usuarios     User[]
 }
