@@ -81,17 +81,17 @@ export function Importador() {
             <div className="rounded-xl bg-bone-2 px-5 py-4 text-sm leading-relaxed text-navy">
               <p className="font-semibold">Columnas</p>
               <p>
-                <strong>Obligatorias:</strong> Nombre (o Nombres y Apellidos), Cédula, Universidad /
-                Colegio, Entidad, Horas requeridas.
+                <strong>Obligatorias:</strong> Nombre (o Nombres y Apellidos), Cédula, Institución y
+                Sede, escritas como están en Instituciones y sedes.
               </p>
               <p>
-                <strong>Opcionales:</strong> Correo, Fecha de inicio (dd/mm/aaaa), Hora de inicio y
-                Hora de fin (08:00).
+                <strong>Opcionales:</strong> Correo, Horas requeridas, Fecha de inicio (dd/mm/aaaa),
+                Hora de inicio y Hora de fin (08:00). Si faltan las horas se usan las de la
+                institución, y si falta el horario, el de la sede.
               </p>
               <p>
-                <strong>Tipo:</strong> Universidad, Colegio o Natural; si no está, se asume
-                Universidad. Los voluntarios naturales solo llevan Nombre, Cédula, Hora de inicio y
-                Hora de fin.
+                <strong>Tipo:</strong> Practicante o Natural; si no está, se asume Practicante. Los
+                voluntarios naturales solo llevan Nombre, Cédula, Hora de inicio y Hora de fin.
               </p>
               <a
                 href="/api/usuarios/importar/plantilla"

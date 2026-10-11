@@ -11,9 +11,9 @@ export interface UsuarioInput {
   nombre: string;
   cedula: string;
   email: string | null;
-  /** null para voluntarios naturales. */
-  universidad: string | null;
-  entidad: string | null;
+  /** IDs del catálogo (maqueta 4f); null para voluntarios naturales. */
+  institucionId: number | null;
+  sedeId: number | null;
   /** 0 para voluntarios naturales: no tienen meta. */
   horasRequeridas: number;
   fechaInicio: Date | null;
@@ -27,8 +27,8 @@ export type UsuarioField =
   | "nombre"
   | "cedula"
   | "email"
-  | "universidad"
-  | "entidad"
+  | "institucionId"
+  | "sedeId"
   | "horasRequeridas"
   | "fechaInicio"
   | "horaInicio"
@@ -47,6 +47,13 @@ const MIN_CEDULA_DIGITS = 5;
 
 function clean(raw: unknown): string {
   return typeof raw === "string" ? raw.trim().replace(/\s+/g, " ") : "";
+}
+
+/** ID del catálogo: entero positivo, o null. Llega como texto del formulario o número del Excel. */
+function parseId(raw: unknown): number | null {
+  const text = typeof raw === "number" ? String(raw) : clean(raw);
+  const id = Number(text);
+  return text && Number.isInteger(id) && id > 0 ? id : null;
 }
 
 export function normalizeCedula(raw: unknown): { ok: true; value: string } | { ok: false; error: string } {
@@ -85,7 +92,7 @@ export function validateUsuarioInput(
   const tipoRaw = clean(raw.tipo);
   if (!isTipoUsuario(tipoRaw)) errors.tipo = "Elige el tipo de usuario.";
   // Sin tipo válido se valida como practicante: es lo más exigente.
-  const tipo: TipoUsuario = isTipoUsuario(tipoRaw) ? tipoRaw : "universidad";
+  const tipo: TipoUsuario = isTipoUsuario(tipoRaw) ? tipoRaw : "practicante";
   const esNatural = tipo === "natural";
 
   const nombre = clean(raw.nombre);
@@ -98,17 +105,17 @@ export function validateUsuarioInput(
   if (email && !EMAIL.test(email)) errors.email = "El correo no parece válido";
 
   // Los naturales no tienen práctica: lo que llegue en estos campos se descarta.
-  let universidad: string | null = null;
-  let entidad: string | null = null;
+  let institucionId: number | null = null;
+  let sedeId: number | null = null;
   let horas = 0;
   let fechaInicio: Date | null = null;
 
   if (!esNatural) {
-    universidad = clean(raw.universidad);
-    if (!universidad) errors.universidad = tipo === "colegio" ? "Falta el colegio" : "Falta la universidad";
+    institucionId = parseId(raw.institucionId);
+    if (institucionId === null) errors.institucionId = "Falta la institución";
 
-    entidad = clean(raw.entidad);
-    if (!entidad) errors.entidad = "Falta la entidad donde practica";
+    sedeId = parseId(raw.sedeId);
+    if (sedeId === null) errors.sedeId = "Falta la sede";
 
     const horasRaw = clean(raw.horasRequeridas);
     horas = Number(horasRaw.replace(",", "."));
@@ -152,8 +159,8 @@ export function validateUsuarioInput(
       nombre,
       cedula: cedula.value,
       email: email || null,
-      universidad,
-      entidad,
+      institucionId,
+      sedeId,
       horasRequeridas: horas,
       fechaInicio,
       horaInicio,

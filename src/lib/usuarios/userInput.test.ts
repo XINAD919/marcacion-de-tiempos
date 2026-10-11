@@ -25,9 +25,9 @@ const valid = {
   nombre: "Tomás Esteban Rincón Duarte",
   cedula: "1.030.771.564",
   email: "tomas.rincon@unal.edu.co",
-  tipo: "universidad",
-  universidad: "Universidad Nacional",
-  entidad: "Sede Centro",
+  tipo: "practicante",
+  institucionId: "3",
+  sedeId: "12",
   horasRequeridas: "240",
   fechaInicio: "2026-08-01",
   horaInicio: "08:00",
@@ -40,12 +40,12 @@ describe("validateUsuarioInput", () => {
     expect(validateUsuarioInput(valid)).toEqual({
       ok: true,
       value: {
-        tipo: "universidad",
+        tipo: "practicante",
         nombre: "Tomás Esteban Rincón Duarte",
         cedula: "1030771564",
         email: "tomas.rincon@unal.edu.co",
-        universidad: "Universidad Nacional",
-        entidad: "Sede Centro",
+        institucionId: 3,
+        sedeId: 12,
         horasRequeridas: 240,
         fechaInicio: new Date(2026, 7, 1),
         horaInicio: "08:00",
@@ -69,7 +69,7 @@ describe("validateUsuarioInput", () => {
     const result = validateUsuarioInput({});
     expect(result.ok).toBe(false);
     expect(!result.ok && Object.keys(result.errors).sort()).toEqual(
-      ["cedula", "entidad", "fechaInicio", "horasRequeridas", "nombre", "tipo", "universidad"].sort()
+      ["cedula", "sedeId", "fechaInicio", "horasRequeridas", "nombre", "tipo", "institucionId"].sort()
     );
   });
 
@@ -105,9 +105,14 @@ describe("validateUsuarioInput", () => {
     expect(!result.ok && result.errors.fechaInicio).toBe("La fecha de inicio no es válida");
   });
 
-  it("pide colegio en vez de universidad para practicantes de colegio", () => {
-    const result = validateUsuarioInput({ ...valid, tipo: "colegio", universidad: "" });
-    expect(!result.ok && result.errors.universidad).toBe("Falta el colegio");
+  it("explica la institución o sede que falta o no es un ID", () => {
+    const result = validateUsuarioInput({ ...valid, institucionId: "", sedeId: "abc" });
+    expect(!result.ok && result.errors).toEqual({ institucionId: "Falta la institución", sedeId: "Falta la sede" });
+  });
+
+  it("acepta los IDs como número (importación)", () => {
+    const result = validateUsuarioInput({ ...valid, institucionId: 3, sedeId: 12 });
+    expect(result.ok && [result.value.institucionId, result.value.sedeId]).toEqual([3, 12]);
   });
 
   describe("voluntario natural", () => {
@@ -129,8 +134,8 @@ describe("validateUsuarioInput", () => {
           nombre: "Marta Lucía Gómez",
           cedula: "52123456",
           email: null,
-          universidad: null,
-          entidad: null,
+          institucionId: null,
+          sedeId: null,
           horasRequeridas: 0,
           fechaInicio: null,
           horaInicio: "09:00",
@@ -151,14 +156,14 @@ describe("validateUsuarioInput", () => {
     it("descarta los datos de práctica aunque lleguen (p. ej. al cambiar el tipo)", () => {
       const result = validateUsuarioInput({
         ...natural,
-        universidad: "Universidad Nacional",
-        entidad: "Sede Centro",
+        institucionId: "3",
+        sedeId: "12",
         horasRequeridas: "240",
         fechaInicio: "2026-08-01",
       });
       expect(result.ok && result.value).toMatchObject({
-        universidad: null,
-        entidad: null,
+        institucionId: null,
+        sedeId: null,
         horasRequeridas: 0,
         fechaInicio: null,
       });

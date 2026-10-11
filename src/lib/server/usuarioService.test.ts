@@ -14,12 +14,12 @@ let sedeId: number;
 
 function input(overrides: Partial<UsuarioInput>): UsuarioInput {
   return {
-    tipo: "universidad",
+    tipo: "practicante",
     nombre: "Sin Nombre",
     cedula: `${PREFIX}000`,
     email: null,
-    universidad: INSTITUCION,
-    entidad: "Entidad Prueba",
+    institucionId,
+    sedeId,
     horasRequeridas: 240,
     fechaInicio: null,
     horaInicio: null,
@@ -35,7 +35,7 @@ async function cleanup() {
   await prisma.faceEmbedding.deleteMany({ where: { userId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
   await prisma.institucion.deleteMany({ where: { nombre: INSTITUCION } });
-  await prisma.sede.deleteMany({ where: { nombre: SEDE } });
+  await prisma.sede.deleteMany({ where: { nombre: { startsWith: SEDE } } });
 }
 
 beforeAll(async () => {
@@ -53,15 +53,11 @@ beforeAll(async () => {
       nombre: "Dora Prueba Natural",
       cedula: `${PREFIX}004`,
       tipo: "natural",
-      universidad: null,
-      entidad: null,
+      institucionId: null,
+      sedeId: null,
       horasRequeridas: 0,
     }),
   ]);
-  await prisma.user.updateMany({
-    where: { cedula: { startsWith: PREFIX }, tipo: { not: "natural" } },
-    data: { institucionId, sedeId },
-  });
   const carla = await prisma.user.findUniqueOrThrow({ where: { cedula: `${PREFIX}003` } });
   await prisma.faceEmbedding.create({
     data: { userId: carla.id, embedding: descriptorToBuffer(new Float32Array(128)), modelo: "test" },
@@ -120,6 +116,28 @@ describe("createUsuario / updateUsuario", () => {
     const ana = await prisma.user.findUniqueOrThrow({ where: { cedula: `${PREFIX}001` } });
     const result = await updateUsuario(ana.id, input({ cedula: `${PREFIX}002` }));
     expect(result).toMatchObject({ ok: false, duplicate: { nombre: "Beto Prueba Inactivo" } });
+  });
+
+  it("no asigna una sede inactiva o que no existe", async () => {
+    const cerrada = await guardarSede(null, { nombre: `${SEDE} Cerrada`, direccion: null, horaApertura: null, horaCierre: null, activa: false });
+    if (!cerrada.ok) throw new Error("No se pudo crear la sede");
+    expect(await createUsuario(input({ cedula: `${PREFIX}020`, sedeId: cerrada.id }))).toEqual({ ok: false, noDisponible: "sedeId" });
+    expect(await createUsuario(input({ cedula: `${PREFIX}021`, institucionId: 999_999_999 }))).toEqual({
+      ok: false,
+      noDisponible: "institucionId",
+    });
+    await prisma.sede.delete({ where: { id: cerrada.id } });
+  });
+
+  it("conserva una institución inactiva que ya tenía", async () => {
+    const ana = await prisma.user.findUniqueOrThrow({ where: { cedula: `${PREFIX}001` } });
+    await prisma.institucion.update({ where: { id: institucionId }, data: { activa: false } });
+    try {
+      const result = await updateUsuario(ana.id, input({ nombre: "Ana Prueba Activa", cedula: `${PREFIX}001` }));
+      expect(result).toEqual({ ok: true, id: ana.id });
+    } finally {
+      await prisma.institucion.update({ where: { id: institucionId }, data: { activa: true } });
+    }
   });
 });
 

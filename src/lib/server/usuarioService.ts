@@ -143,16 +143,39 @@ export function dbDateToIso(date: Date | null): string {
 
 export type SaveResult =
   | { ok: true; id: string }
-  | { ok: false; duplicate: { id: string; nombre: string } };
+  | { ok: false; duplicate: { id: string; nombre: string } }
+  | { ok: false; noDisponible: "institucionId" | "sedeId" };
 
 async function findDuplicate(cedula: string, exceptId?: string) {
   const other = await prisma.user.findUnique({ where: { cedula }, select: { id: true, nombre: true } });
   return other && other.id !== exceptId ? other : null;
 }
 
+/**
+ * Institución o sede elegida que ya no se puede asignar: no existe, o está
+ * inactiva y el usuario no la tenía. La que ya tenía la conserva aunque se
+ * haya inactivado después.
+ */
+async function catalogoNoDisponible(
+  input: UsuarioInput,
+  actual?: { institucionId: number | null; sedeId: number | null }
+): Promise<"institucionId" | "sedeId" | null> {
+  if (input.institucionId !== null && input.institucionId !== actual?.institucionId) {
+    const found = await prisma.institucion.findUnique({ where: { id: input.institucionId }, select: { activa: true } });
+    if (!found?.activa) return "institucionId";
+  }
+  if (input.sedeId !== null && input.sedeId !== actual?.sedeId) {
+    const found = await prisma.sede.findUnique({ where: { id: input.sedeId }, select: { activa: true } });
+    if (!found?.activa) return "sedeId";
+  }
+  return null;
+}
+
 export async function createUsuario(input: UsuarioInput): Promise<SaveResult> {
   const duplicate = await findDuplicate(input.cedula);
   if (duplicate) return { ok: false, duplicate };
+  const noDisponible = await catalogoNoDisponible(input);
+  if (noDisponible) return { ok: false, noDisponible };
   const user = await prisma.user.create({ data: toDbInput(input), select: { id: true } });
   return { ok: true, id: user.id };
 }
@@ -160,6 +183,9 @@ export async function createUsuario(input: UsuarioInput): Promise<SaveResult> {
 export async function updateUsuario(id: string, input: UsuarioInput): Promise<SaveResult> {
   const duplicate = await findDuplicate(input.cedula, id);
   if (duplicate) return { ok: false, duplicate };
+  const actual = await prisma.user.findUnique({ where: { id }, select: { institucionId: true, sedeId: true } });
+  const noDisponible = await catalogoNoDisponible(input, actual ?? undefined);
+  if (noDisponible) return { ok: false, noDisponible };
   await prisma.user.update({ where: { id }, data: toDbInput(input) });
   return { ok: true, id };
 }

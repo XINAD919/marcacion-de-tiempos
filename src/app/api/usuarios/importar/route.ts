@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { buildCatalogIndex } from "@/lib/catalogo/nombres";
 import { auth } from "@/lib/server/auth";
+import { listCatalogo } from "@/lib/server/catalogoService";
 import { buildWorkbook, readSheetRows } from "@/lib/server/excel";
 import { insertUsuarios, listCedulas } from "@/lib/server/usuarioService";
 import { classifyImportRows } from "@/lib/usuarios/importRows";
@@ -45,9 +47,13 @@ export async function POST(request: Request) {
     .map((row) => Object.entries(row).find(([header]) => /c[eé]dula|documento|^cc$/i.test(header.trim()))?.[1])
     .map((value) => normalizeCedula(String(value ?? "")))
     .flatMap((result) => (result.ok ? [result.value] : []));
-  const existentes = await listCedulas([...new Set(cedulasDelArchivo)]);
+  const [existentes, { instituciones, sedes }] = await Promise.all([
+    listCedulas([...new Set(cedulasDelArchivo)]),
+    listCatalogo(),
+  ]);
+  const catalogo = { instituciones: buildCatalogIndex(instituciones), sedes: buildCatalogIndex(sedes) };
 
-  const result = classifyImportRows(rows, existentes);
+  const result = classifyImportRows(rows, existentes, catalogo);
   const insertados = result.columnasFaltantes.length > 0 ? 0 : await insertUsuarios(result.validos.map((row) => row.input));
 
   // Filas con error tal como venían, más el motivo, para corregir y reintentar.

@@ -1,5 +1,8 @@
+import type { InstitucionOpcion } from "@/lib/catalogo/institucion";
+import { normalizeNombre } from "@/lib/catalogo/nombres";
+import type { SedeOpcion } from "@/lib/catalogo/sede";
 import { parseTipoUsuario } from "./tipoUsuario";
-import { type UsuarioField, type UsuarioInput, validateUsuarioInput } from "./userInput";
+import { type UsuarioErrors, type UsuarioField, type UsuarioInput, validateUsuarioInput } from "./userInput";
 
 /** Fila tal como la entrega SheetJS: texto, número (seriales de Excel) o Date. */
 export type RawRow = Record<string, unknown>;
@@ -20,7 +23,13 @@ export interface ImportClassification {
   columnasFaltantes: string[];
 }
 
-type Column = UsuarioField | "nombres" | "apellidos";
+/** Catálogo indexado por nombre normalizado (`buildCatalogIndex`). */
+export interface ImportCatalog {
+  instituciones: Map<string, InstitucionOpcion>;
+  sedes: Map<string, SedeOpcion>;
+}
+
+type Column = Exclude<UsuarioField, "institucionId" | "sedeId"> | "nombres" | "apellidos" | "institucion" | "sede";
 
 // Encabezados aceptados, ya normalizados (minúsculas, sin tildes ni espacios extra).
 const HEADER_ALIASES: Record<Column, string[]> = {
@@ -30,19 +39,19 @@ const HEADER_ALIASES: Record<Column, string[]> = {
   apellidos: ["apellidos"],
   cedula: ["cedula", "cedula / documento", "documento", "numero de documento", "cc"],
   email: ["correo", "email", "correo electronico"],
-  universidad: ["universidad / colegio", "universidad", "colegio", "institucion"],
-  entidad: ["entidad", "entidad donde practica", "sede"],
+  institucion: ["institucion", "universidad / colegio", "universidad", "colegio"],
+  sede: ["sede", "entidad", "entidad donde practica"],
   horasRequeridas: ["horas requeridas", "horas exigidas", "horas"],
   fechaInicio: ["fecha de inicio", "fecha inicio", "inicio"],
   horaInicio: ["hora de inicio", "hora inicio", "hora de llegada", "llegada"],
   horaFin: ["hora de fin", "hora fin", "hora de salida", "salida"],
 };
 
-const REQUIRED: { column: Column | "nombre"; label: string }[] = [
+// Las horas ya no son obligatorias: si faltan se toman de la institución.
+const REQUIRED: { column: Column; label: string }[] = [
   { column: "cedula", label: "Cédula" },
-  { column: "universidad", label: "Universidad / Colegio" },
-  { column: "entidad", label: "Entidad" },
-  { column: "horasRequeridas", label: "Horas requeridas" },
+  { column: "institucion", label: "Institución" },
+  { column: "sede", label: "Sede" },
 ];
 
 function normalizeHeader(header: string): string {
@@ -102,11 +111,33 @@ function isEmptyRow(row: RawRow): boolean {
   return Object.values(row).every((value) => toText(value).trim() === "");
 }
 
+type Resolucion<T> = { item: T | null; error: string | null };
+
+/**
+ * Busca la celda en el catálogo sin distinguir mayúsculas ni tildes. Nunca
+ * crea: si no está, la fila queda con error para corregir el nombre o
+ * agregarla en Instituciones y sedes.
+ */
+function resolver<T extends { activa: boolean }>(
+  index: Map<string, T>,
+  raw: string,
+  que: "La institución" | "La sede"
+): Resolucion<T> {
+  const nombre = raw.trim().replace(/\s+/g, " ");
+  if (!nombre) return { item: null, error: null }; // validateUsuarioInput dice que falta
+  const item = index.get(normalizeNombre(nombre));
+  if (!item) return { item: null, error: `${que} «${nombre}» no existe. Agrégala en Instituciones y sedes o corrige el nombre.` };
+  if (!item.activa) return { item: null, error: `${que} «${nombre}» está inactiva.` };
+  return { item, error: null };
+}
+
+const SIN_CATALOGO = { item: null, error: null } as const;
+
 /**
  * Clasifica las filas de un Excel de practicantes en válidas, duplicadas y con
  * error (maqueta 2b). `cedulasExistentes` son las ya registradas en la base.
  */
-export function classifyImportRows(rows: RawRow[], cedulasExistentes: Set<string>): ImportClassification {
+export function classifyImportRows(rows: RawRow[], cedulasExistentes: Set<string>, catalogo: ImportCatalog): ImportClassification {
   const headers = new Set(rows.flatMap((row) => Object.keys(row)));
   const columnKey = new Map<Column, string>();
   for (const header of headers) {
@@ -143,16 +174,31 @@ export function classifyImportRows(rows: RawRow[], cedulasExistentes: Set<string
     const cedulaRaw = toText(cell(row, "cedula")).trim();
 
     const tipoRaw = toText(cell(row, "tipo")).trim();
-    const tipo = tipoRaw ? parseTipoUsuario(tipoRaw) : "universidad";
+    const tipo = tipoRaw ? parseTipoUsuario(tipoRaw) : "practicante";
     if (tipo === null) {
       result.errores.push({
         fila,
         nombre: nombre.trim().replace(/\s+/g, " "),
         cedula: cedulaRaw,
-        motivo: "El tipo debe ser Universidad, Colegio o Natural",
+        motivo: "El tipo debe ser Practicante o Natural",
       });
       return;
     }
+
+    // Los naturales no llevan institución ni sede: lo escrito se ignora.
+    const esNatural = tipo === "natural";
+    const institucion = esNatural
+      ? SIN_CATALOGO
+      : resolver(catalogo.instituciones, toText(cell(row, "institucion")), "La institución");
+    const sede = esNatural ? SIN_CATALOGO : resolver(catalogo.sedes, toText(cell(row, "sede")), "La sede");
+
+    // Lo que falte en el Excel se toma de la institución (horas) y la sede (horario).
+    const horasRaw = toText(cell(row, "horasRequeridas")).trim();
+    const horasPorDefecto =
+      institucion.item && institucion.item.horasExigidas > 0 ? String(institucion.item.horasExigidas) : "";
+    const horaInicio = toHhmm(cell(row, "horaInicio"));
+    const horaFin = toHhmm(cell(row, "horaFin"));
+    const sinHorario = !horaInicio && !horaFin;
 
     const validation = validateUsuarioInput(
       {
@@ -160,20 +206,24 @@ export function classifyImportRows(rows: RawRow[], cedulasExistentes: Set<string
         nombre,
         cedula: cedulaRaw,
         email: toText(cell(row, "email")),
-        universidad: toText(cell(row, "universidad")),
-        entidad: toText(cell(row, "entidad")),
-        horasRequeridas: toText(cell(row, "horasRequeridas")),
+        institucionId: institucion.item?.id ?? "",
+        sedeId: sede.item?.id ?? "",
+        horasRequeridas: horasRaw || horasPorDefecto,
         fechaInicio: toIsoDate(cell(row, "fechaInicio")),
-        horaInicio: toHhmm(cell(row, "horaInicio")),
-        horaFin: toHhmm(cell(row, "horaFin")),
+        horaInicio: sinHorario && sede.item?.horaApertura ? sede.item.horaApertura : horaInicio,
+        horaFin: sinHorario && sede.item?.horaCierre ? sede.item.horaCierre : horaFin,
       },
       { requireFechaInicio: false }
     );
 
     const nombreLimpio = nombre.trim().replace(/\s+/g, " ");
-    if (!validation.ok) {
+    if (!validation.ok || institucion.error || sede.error) {
+      const errors: UsuarioErrors = validation.ok ? {} : { ...validation.errors };
+      // "No existe" / "está inactiva" explican mejor que "Falta la institución".
+      if (institucion.error) errors.institucionId = institucion.error;
+      if (sede.error) errors.sedeId = sede.error;
       // La cédula primero: es lo que la coordinadora usa para ubicar la fila.
-      const ordered = [validation.errors.cedula, ...Object.values(validation.errors)].filter(Boolean);
+      const ordered = [errors.cedula, ...Object.values(errors)].filter(Boolean);
       result.errores.push({
         fila,
         nombre: nombreLimpio,

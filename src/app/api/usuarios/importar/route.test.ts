@@ -8,6 +8,8 @@ vi.mock("@/lib/server/auth", () => ({ auth: () => auth() }));
 import { POST } from "./route";
 
 const PREFIX = "990088";
+const INSTITUCION = "Zz Universidad de Prueba Importación";
+const SEDE = "Zz Sede de Prueba Importación";
 
 function xlsxOf(rows: Record<string, unknown>[]): Blob {
   const workbook = XLSX.utils.book_new();
@@ -25,8 +27,8 @@ function request(file: Blob, name = "practicantes.xlsx"): Request {
 const row = (cedula: string, overrides: Record<string, unknown> = {}) => ({
   Nombre: `Persona ${cedula}`,
   "Cédula": cedula,
-  "Universidad / Colegio": "Universidad de Prueba Importación",
-  Entidad: "Sede Centro",
+  "Universidad / Colegio": INSTITUCION,
+  Entidad: SEDE,
   "Horas requeridas": 240,
   ...overrides,
 });
@@ -39,9 +41,19 @@ beforeEach(async () => {
   auth.mockReset();
   auth.mockResolvedValue({ user: { id: "test-admin" } });
   await cleanup();
+  await prisma.institucion.upsert({
+    where: { nombre: INSTITUCION },
+    create: { nombre: INSTITUCION, tipo: "universidad", horasExigidas: 240 },
+    update: { activa: true },
+  });
+  await prisma.sede.upsert({ where: { nombre: SEDE }, create: { nombre: SEDE }, update: { activa: true } });
 });
 
-afterAll(cleanup);
+afterAll(async () => {
+  await cleanup();
+  await prisma.institucion.deleteMany({ where: { nombre: INSTITUCION } });
+  await prisma.sede.deleteMany({ where: { nombre: SEDE } });
+});
 
 describe("POST /api/usuarios/importar", () => {
   it("responde 401 sin sesión", async () => {
@@ -93,7 +105,7 @@ describe("POST /api/usuarios/importar", () => {
     const body = await response.json();
 
     expect(body.insertados).toBe(0);
-    expect(body.columnasFaltantes).toEqual(["Cédula", "Universidad / Colegio", "Horas requeridas"]);
+    expect(body.columnasFaltantes).toEqual(["Cédula", "Institución"]);
   });
 
   it("rechaza archivos que no son hojas de cálculo", async () => {

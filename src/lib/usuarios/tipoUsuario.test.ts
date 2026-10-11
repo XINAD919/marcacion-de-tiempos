@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import { describeAfiliacion, etiquetaTipo, isTipoUsuario, parseTipoUsuario, tieneMetaDeHoras } from "./tipoUsuario";
 
 describe("isTipoUsuario", () => {
-  it("acepta solo los tres tipos", () => {
-    expect(isTipoUsuario("universidad")).toBe(true);
-    expect(isTipoUsuario("colegio")).toBe(true);
+  it("acepta solo practicante y natural", () => {
+    expect(isTipoUsuario("practicante")).toBe(true);
     expect(isTipoUsuario("natural")).toBe(true);
-    expect(isTipoUsuario("Natural")).toBe(false);
+    expect(isTipoUsuario("universidad")).toBe(false);
     expect(isTipoUsuario("")).toBe(false);
     expect(isTipoUsuario(undefined)).toBe(false);
   });
@@ -14,17 +13,19 @@ describe("isTipoUsuario", () => {
 
 describe("tieneMetaDeHoras", () => {
   it("solo los voluntarios naturales no tienen meta", () => {
-    expect(tieneMetaDeHoras("universidad")).toBe(true);
-    expect(tieneMetaDeHoras("colegio")).toBe(true);
+    expect(tieneMetaDeHoras("practicante")).toBe(true);
     expect(tieneMetaDeHoras("natural")).toBe(false);
   });
 });
 
 describe("parseTipoUsuario", () => {
-  it("entiende cómo lo escribe la coordinadora en Excel", () => {
-    expect(parseTipoUsuario("Universidad")).toBe("universidad");
-    expect(parseTipoUsuario(" UNIVERSITARIO ")).toBe("universidad");
-    expect(parseTipoUsuario("colegio")).toBe("colegio");
+  it("universidad, técnica o colegio son practicantes: el tipo concreto lo pone la institución", () => {
+    for (const raw of ["Practicante", "Universidad", " UNIVERSITARIO ", "Técnica", "tecnico", "colegio"]) {
+      expect(parseTipoUsuario(raw)).toBe("practicante");
+    }
+  });
+
+  it("natural o voluntario", () => {
     expect(parseTipoUsuario("Natural")).toBe("natural");
     expect(parseTipoUsuario("Voluntario")).toBe("natural");
     expect(parseTipoUsuario("voluntario natural")).toBe("natural");

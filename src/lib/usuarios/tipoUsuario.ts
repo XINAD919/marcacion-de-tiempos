@@ -1,18 +1,18 @@
 /**
- * Tipos de usuario: practicantes de universidad o colegio (con meta de horas
- * del convenio) y voluntarios naturales (sin meta, sin institución ni
- * sede). Módulo puro: lo usan el formulario, la importación, la marcación
- * y el kiosko.
+ * Tipos de usuario: practicantes (con institución, sede y meta de horas del
+ * convenio) y voluntarios naturales (sin meta, sin institución ni sede).
+ * Universidad / técnica / colegio no es un tipo de usuario: lo dice la
+ * institución (src/lib/catalogo/institucion.ts). Módulo puro: lo usan el
+ * formulario, la importación, la marcación y el kiosko.
  */
 
 import { TIPO_INSTITUCION_LABEL, isTipoInstitucion } from "@/lib/catalogo/institucion";
 
-export const TIPOS_USUARIO = ["universidad", "colegio", "natural"] as const;
+export const TIPOS_USUARIO = ["practicante", "natural"] as const;
 export type TipoUsuario = (typeof TIPOS_USUARIO)[number];
 
 export const TIPO_USUARIO_LABEL: Record<TipoUsuario, string> = {
-  universidad: "Universidad",
-  colegio: "Colegio",
+  practicante: "Practicante",
   natural: "Voluntario natural",
 };
 
@@ -25,10 +25,16 @@ export function tieneMetaDeHoras(tipo: string): boolean {
   return tipo !== "natural";
 }
 
+// Universidad, técnica o colegio se aceptan por compatibilidad con los Excel
+// viejos: son practicantes y el tipo concreto lo pone su institución.
 const TIPO_ALIASES: Record<string, TipoUsuario> = {
-  universidad: "universidad",
-  universitario: "universidad",
-  colegio: "colegio",
+  practicante: "practicante",
+  universidad: "practicante",
+  universitario: "practicante",
+  universitaria: "practicante",
+  tecnica: "practicante",
+  tecnico: "practicante",
+  colegio: "practicante",
   natural: "natural",
   voluntario: "natural",
   "voluntario natural": "natural",
@@ -38,7 +44,7 @@ const TIPO_ALIASES: Record<string, TipoUsuario> = {
 export function parseTipoUsuario(raw: string): TipoUsuario | null {
   const key = raw
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
