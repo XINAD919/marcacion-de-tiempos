@@ -4,14 +4,15 @@ import { hrefWith, parseUsuarioFilters } from "./filters";
 describe("parseUsuarioFilters", () => {
   it("lee los filtros de la URL e ignora valores desconocidos", () => {
     expect(
-      parseUsuarioFilters({ q: " laura ", estado: "sin-rostro", entidad: "Sede Centro", page: "3" })
-    ).toEqual({ q: "laura", estado: "sin-rostro", entidad: "Sede Centro", universidad: undefined, page: 3 });
+      parseUsuarioFilters({ q: " laura ", estado: "sin-rostro", tipo: "colegio", institucion: "3", sede: "12", page: "3" })
+    ).toEqual({ q: "laura", estado: "sin-rostro", tipo: "colegio", institucion: 3, sede: 12, page: 3 });
 
-    expect(parseUsuarioFilters({ estado: "borrado", page: "-2" })).toEqual({
+    expect(parseUsuarioFilters({ estado: "borrado", tipo: "empresa", institucion: "abc", sede: "-1", page: "-2" })).toEqual({
       q: undefined,
       estado: undefined,
-      entidad: undefined,
-      universidad: undefined,
+      tipo: undefined,
+      institucion: undefined,
+      sede: undefined,
       page: 1,
     });
   });
@@ -37,13 +38,16 @@ describe("hrefWith", () => {
   });
 });
 
-describe("filtro por tipo", () => {
-  it("lee el tipo de la URL e ignora valores desconocidos", () => {
-    expect(parseUsuarioFilters({ tipo: "natural" }).tipo).toBe("natural");
-    expect(parseUsuarioFilters({ tipo: "empresa" }).tipo).toBeUndefined();
+describe("filtro por tipo, institución y sede", () => {
+  it("acepta los tres tipos de institución y voluntario natural", () => {
+    for (const tipo of ["universidad", "tecnica", "colegio", "natural"]) {
+      expect(parseUsuarioFilters({ tipo }).tipo).toBe(tipo);
+    }
   });
 
-  it("lo escribe en la URL", () => {
-    expect(hrefWith({}, { tipo: "colegio" })).toBe("/admin/usuarios?tipo=colegio");
+  it("los escribe en la URL", () => {
+    expect(hrefWith({}, { tipo: "tecnica", institucion: 3, sede: 12 })).toBe(
+      "/admin/usuarios?tipo=tecnica&institucion=3&sede=12"
+    );
   });
 });

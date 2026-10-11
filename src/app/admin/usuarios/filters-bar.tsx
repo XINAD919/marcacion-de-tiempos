@@ -8,7 +8,7 @@ import { type Filters, hrefWith } from "@/lib/usuarios/filters";
 const SEARCH_DEBOUNCE_MS = 300;
 
 interface FilterDef {
-  key: "tipo" | "universidad" | "entidad" | "estado";
+  key: "tipo" | "institucion" | "sede" | "estado";
   label: string;
   options: { value: string; label: string }[];
 }
@@ -44,7 +44,7 @@ export function FiltersBar({ filters, defs }: { filters: Filters; defs: FilterDe
       {defs.map((def) => {
         const applied = filters[def.key];
         if (applied) {
-          const label = def.options.find((option) => option.value === applied)?.label ?? applied;
+          const label = def.options.find((option) => option.value === String(applied))?.label ?? String(applied);
           return (
             <Link
               key={def.key}

@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initials } from "@/lib/initials";
-import { PAGE_SIZE, type UsuarioRow, listFilterOptions, listUsuarios } from "@/lib/server/usuarioService";
+import { etiquetaOpcion } from "@/lib/catalogo/nombres";
+import { listCatalogo } from "@/lib/server/catalogoService";
+import { PAGE_SIZE, type UsuarioRow, listUsuarios } from "@/lib/server/usuarioService";
 import { ESTADO_OPCIONES, type Filters, TIPO_OPCIONES, hrefWith, parseUsuarioFilters } from "@/lib/usuarios/filters";
-import { TIPO_USUARIO_LABEL, isTipoUsuario } from "@/lib/usuarios/tipoUsuario";
+import { etiquetaTipo } from "@/lib/usuarios/tipoUsuario";
 import { formatCedula } from "@/lib/usuarios/userInput";
 import { cn } from "@/lib/utils";
 import { FiltersBar } from "./filters-bar";
@@ -24,15 +26,12 @@ function EstadoPill({ user }: { user: UsuarioRow }) {
 
 export default async function UsuariosPage({ searchParams }: PageProps<"/admin/usuarios">) {
   const filters = parseUsuarioFilters(await searchParams);
-  const [{ rows, total, page, counts }, options] = await Promise.all([
-    listUsuarios(filters),
-    listFilterOptions(),
-  ]);
+  const [{ rows, total, page, counts }, catalogo] = await Promise.all([listUsuarios(filters), listCatalogo()]);
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, total);
-  const hasFilters = Boolean(filters.q || filters.tipo || filters.universidad || filters.entidad || filters.estado);
+  const hasFilters = Boolean(filters.q || filters.tipo || filters.institucion || filters.sede || filters.estado);
 
   return (
     <>
@@ -55,14 +54,14 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
           defs={[
             { key: "tipo", label: "Tipo", options: TIPO_OPCIONES },
             {
-              key: "universidad",
-              label: "Universidad / Colegio",
-              options: options.universidades.map((value) => ({ value, label: value })),
+              key: "institucion",
+              label: "Institución",
+              options: catalogo.instituciones.map((item) => ({ value: String(item.id), label: etiquetaOpcion(item) })),
             },
             {
-              key: "entidad",
-              label: "Entidad",
-              options: options.entidades.map((value) => ({ value, label: value })),
+              key: "sede",
+              label: "Sede",
+              options: catalogo.sedes.map((item) => ({ value: String(item.id), label: etiquetaOpcion(item) })),
             },
             { key: "estado", label: "Estado", options: [...ESTADO_OPCIONES] },
           ]}
@@ -93,8 +92,8 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
                 <TableHead>Nombre</TableHead>
                 <TableHead>Cédula</TableHead>
                 <TableHead>Tipo</TableHead>
-                <TableHead>Universidad / Colegio</TableHead>
-                <TableHead>Entidad</TableHead>
+                <TableHead>Institución</TableHead>
+                <TableHead>Sede</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -116,9 +115,9 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
                       </div>
                     </TableCell>
                     <TableCell className="tabular-nums">{formatCedula(user.cedula)}</TableCell>
-                    <TableCell>{isTipoUsuario(user.tipo) ? TIPO_USUARIO_LABEL[user.tipo] : user.tipo}</TableCell>
-                    <TableCell>{user.universidad ?? "—"}</TableCell>
-                    <TableCell>{user.entidad ?? "—"}</TableCell>
+                    <TableCell>{etiquetaTipo(user)}</TableCell>
+                    <TableCell>{user.institucion ?? "—"}</TableCell>
+                    <TableCell>{user.sede ?? "—"}</TableCell>
                     <TableCell>
                       <EstadoPill user={user} />
                     </TableCell>

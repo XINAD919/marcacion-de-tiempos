@@ -10,8 +10,9 @@ export interface UsuarioRow {
   nombre: string;
   cedula: string;
   tipo: string;
-  universidad: string | null;
-  entidad: string | null;
+  institucion: string | null;
+  institucionTipo: string | null;
+  sede: string | null;
   activo: boolean;
   fotos: number;
 }
@@ -24,7 +25,7 @@ export const AFILIACION_INCLUDE = {
   sede: { select: { nombre: true } },
 } as const satisfies Prisma.UserInclude;
 
-function whereFor({ q, tipo, universidad, entidad, estado }: UsuarioFilters): Prisma.UserWhereInput {
+function whereFor({ q, tipo, institucion, sede, estado }: UsuarioFilters): Prisma.UserWhereInput {
   const and: Prisma.UserWhereInput[] = [];
 
   const text = q?.trim();
@@ -38,9 +39,11 @@ function whereFor({ q, tipo, universidad, entidad, estado }: UsuarioFilters): Pr
       ],
     });
   }
-  if (tipo) and.push({ tipo });
-  if (universidad) and.push({ universidad });
-  if (entidad) and.push({ entidad });
+  // Natural es un tipo de usuario; universidad / técnica / colegio, de su institución.
+  if (tipo === "natural") and.push({ tipo: "natural" });
+  else if (tipo) and.push({ tipo: { not: "natural" }, institucion: { tipo } });
+  if (institucion) and.push({ institucionId: institucion });
+  if (sede) and.push({ sedeId: sede });
   if (estado === "activo") and.push({ activo: true });
   if (estado === "inactivo") and.push({ activo: false });
   if (estado === "sin-rostro") and.push({ activo: true, embeddings: { none: {} } });
@@ -63,9 +66,9 @@ export async function listUsuarios(filters: UsuarioFilters) {
         nombre: true,
         cedula: true,
         tipo: true,
-        universidad: true,
-        entidad: true,
         activo: true,
+        institucion: { select: { nombre: true, tipo: true } },
+        sede: { select: { nombre: true } },
         _count: { select: { embeddings: true } },
       },
     }),
@@ -74,7 +77,13 @@ export async function listUsuarios(filters: UsuarioFilters) {
     prisma.user.count({ where: { activo: true } }),
   ]);
 
-  const rows: UsuarioRow[] = users.map(({ _count, ...user }) => ({ ...user, fotos: _count.embeddings }));
+  const rows: UsuarioRow[] = users.map(({ _count, institucion, sede, ...user }) => ({
+    ...user,
+    institucion: institucion?.nombre ?? null,
+    institucionTipo: institucion?.tipo ?? null,
+    sede: sede?.nombre ?? null,
+    fotos: _count.embeddings,
+  }));
   return { rows, total, page, counts: { registrados, activos, inactivos: registrados - activos } };
 }
 

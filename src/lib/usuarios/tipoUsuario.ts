@@ -5,6 +5,8 @@
  * y el kiosko.
  */
 
+import { TIPO_INSTITUCION_LABEL, isTipoInstitucion } from "@/lib/catalogo/institucion";
+
 export const TIPOS_USUARIO = ["universidad", "colegio", "natural"] as const;
 export type TipoUsuario = (typeof TIPOS_USUARIO)[number];
 
@@ -51,4 +53,10 @@ interface ConNombre {
 export function describeAfiliacion(user: { tipo: string; institucion: ConNombre | null; sede: ConNombre | null }): string {
   if (user.tipo === "natural") return TIPO_USUARIO_LABEL.natural;
   return [user.institucion?.nombre, user.sede?.nombre].filter((part) => part && part.trim()).join(" · ");
+}
+
+/** Columna Tipo del listado: la del practicante la pone su institución. */
+export function etiquetaTipo(user: { tipo: string; institucionTipo: string | null }): string {
+  if (user.tipo === "natural") return TIPO_USUARIO_LABEL.natural;
+  return isTipoInstitucion(user.institucionTipo) ? TIPO_INSTITUCION_LABEL[user.institucionTipo] : "—";
 }

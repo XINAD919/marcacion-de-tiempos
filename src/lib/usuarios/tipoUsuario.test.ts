@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeAfiliacion, isTipoUsuario, parseTipoUsuario, tieneMetaDeHoras } from "./tipoUsuario";
+import { describeAfiliacion, etiquetaTipo, isTipoUsuario, parseTipoUsuario, tieneMetaDeHoras } from "./tipoUsuario";
 
 describe("isTipoUsuario", () => {
   it("acepta solo los tres tipos", () => {
@@ -55,5 +55,13 @@ describe("describeAfiliacion", () => {
     expect(describeAfiliacion({ tipo: "colegio", institucion: { nombre: "Colegio San José" }, sede: null })).toBe(
       "Colegio San José"
     );
+  });
+});
+
+describe("etiquetaTipo", () => {
+  it("el tipo de un practicante sale de su institución", () => {
+    expect(etiquetaTipo({ tipo: "universidad", institucionTipo: "tecnica" })).toBe("Técnica");
+    expect(etiquetaTipo({ tipo: "universidad", institucionTipo: null })).toBe("—");
+    expect(etiquetaTipo({ tipo: "natural", institucionTipo: null })).toBe("Voluntario natural");
   });
 });
