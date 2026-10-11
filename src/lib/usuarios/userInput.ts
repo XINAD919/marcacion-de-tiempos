@@ -40,7 +40,7 @@ export type ValidationResult =
   | { ok: true; value: UsuarioInput }
   | { ok: false; errors: UsuarioErrors };
 
-const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
+export const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_CEDULA_DIGITS = 5;
@@ -71,7 +71,7 @@ export function parseIsoDate(raw: string): Date | null {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
 
-function minutesOf(hhmm: string): number {
+export function minutesOf(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h! * 60 + m!;
 }
