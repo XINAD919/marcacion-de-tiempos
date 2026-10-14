@@ -29,12 +29,15 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/admin/usuarios?estado=sin-rostro",
         match: ["/admin/enrolar"],
       },
+      
     ],
   },
   {
     id: "analisis",
     label: "ANÁLISIS",
-    items: [{ id: "reportes", label: "Reportes", href: null }],
+    items: [
+      { id: "reportes", label: "Reportes", href: "/admin/reportes", match: ["/admin/reportes"] },
+    ],
   },
   {
     id: "configuracion",

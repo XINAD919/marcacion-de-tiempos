@@ -17,7 +17,8 @@ export interface UsuarioRow {
 
 export const PAGE_SIZE = 20;
 
-function whereFor({ q, universidad, entidad, estado }: UsuarioFilters): Prisma.UserWhereInput {
+/** Filtro de usuarios por texto, universidad, entidad y estado; Reportes lo reutiliza. */
+export function whereFor({ q, universidad, entidad, estado }: UsuarioFilters): Prisma.UserWhereInput {
   const and: Prisma.UserWhereInput[] = [];
 
   const text = q?.trim();
