@@ -39,7 +39,7 @@ test("instituciones y sedes de punta a punta", async ({ page }) => {
   await page.locator("#institucion-nombre").fill(INSTITUCION);
   await page.locator("#institucion-horas").fill("240");
   await page.getByRole("button", { name: "Guardar" }).click();
-  await expect(page.getByRole("cell", { name: INSTITUCION })).toBeVisible();
+  await expect(page.getByRole("cell", { name: INSTITUCION, exact: true })).toBeVisible();
 
   // Nombre repetido con otras mayúsculas: error, sin perder lo escrito.
   await page.getByRole("button", { name: "+ Agregar sede" }).click();
