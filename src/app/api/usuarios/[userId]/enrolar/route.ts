@@ -38,6 +38,7 @@ export async function POST(request: Request, { params }: Context) {
   }
 
   const formData = await request.formData();
+  console.log("🚀 ~ POST ~ formData:", formData)
   const foto = formData.get("foto");
 
   if (!(foto instanceof Blob)) {

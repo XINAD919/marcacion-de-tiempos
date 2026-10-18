@@ -62,6 +62,12 @@ reconocimiento facial falla.
   desde el CDN oficial (`https://cdn.sheetjs.com/xlsx-0.20.3/...`), no desde npm: la versión de
   npm quedó en 0.18.5 con vulnerabilidades conocidas. Los CSV se decodifican a mano (UTF-8 o
   Windows-1252) antes de pasarlos a SheetJS; ver `src/lib/server/excel.ts`.
+- **Correo:** `nodemailer` con el SMTP que se configura en Configuración (tabla
+  `configuracion_smtp`, no variables de entorno). La contraseña se guarda cifrada (AES-256-GCM,
+  clave derivada de `AUTH_SECRET`, ver `src/lib/server/secretBox.ts`): si `AUTH_SECRET` cambia,
+  hay que volver a escribirla. Los errores de nodemailer se traducen con `describeMailError`.
+- **Carnet virtual:** QR generado con `qrcode` en el servidor y leído en el kiosko con `jsqr`
+  sobre los cuadros de la misma webcam (sin lector USB).
 - **Despliegue:** reverse proxy con HTTPS interno (certificado propio vía CA local, ej. `mkcert`)
   dentro de la red de la fundación — requisito crítico, ver sección de arquitectura
 
@@ -133,7 +139,8 @@ src/
    automático contra los usuarios enrolados, feedback inmediato de éxito/fallo, fallback a QR
    del carnet si el reconocimiento falla repetidamente.
 2. **Administración:** CRUD de practicantes (crear, listar, editar, inactivar), importación
-   masiva desde Excel con reporte de insertados/duplicados/errores, pantalla de enrolamiento
+   masiva desde Excel con reporte de insertados/duplicados/errores (columna opcional **Tipo**:
+   Universidad / Colegio / Natural; sin ella se asume universidad), pantalla de enrolamiento
    facial (captura de 3-5 fotos por usuario para mejorar precisión del matching).
 3. **Reportes:** tabla filtrable por universidad/entidad/estado con horas cumplidas, horas
    restantes y última marcación por practicante; identificación de próximos a finalizar;
@@ -141,13 +148,33 @@ src/
 
 ## Modelo de datos (borrador, SQL Server)
 
-- `users`: id, cedula, nombre, email (opcional), universidad, entidad, horas_requeridas,
-  fecha_inicio (DATE), hora_inicio / hora_fin ("HH:mm", horario asignado), activo, fecha_registro
+- `users`: id, cedula, nombre, email (opcional), tipo (`practicante` | `natural`, ver
+  `src/lib/usuarios/tipoUsuario.ts`), institucion_id y sede_id (FK; NULL en naturales),
+  horas_requeridas (0 en naturales), fecha_inicio (DATE), hora_inicio / hora_fin ("HH:mm",
+  horario asignado; obligatorio en naturales), activo, fecha_registro
+- `institucion`: id, nombre (único), tipo (`universidad` | `tecnica` | `colegio`),
+  horas_exigidas (valor por defecto de las horas requeridas al asignarla), activa. No se borra:
+  se inactiva.
+- `sede`: id, nombre (único), direccion, hora_apertura / hora_cierre ("HH:mm", horario por
+  defecto de sus practicantes), activa. No se borra: se inactiva.
 - `face_embeddings`: id, user_id (FK), embedding (VARBINARY), modelo, fecha_captura
 - `attendance_logs`: id, user_id (FK), tipo (IN/OUT), metodo (face/qr), confianza, device_id, marcado_en
+- `carnet_virtual`: user_id (PK/FK), token (único), creado_en, enviado_en, enviado_a. El QR
+  codifica `CARNET:<token>` (`src/lib/carnetQr.ts`), nunca la cédula; "enviar uno nuevo" cambia
+  el token y el QR anterior deja de servir. Es tabla aparte porque en SQL Server un `UNIQUE`
+  sobre una columna opcional solo admite un `NULL`.
+- `configuracion_smtp`: una sola fila (id = 1) con servidor, puerto, seguridad
+  (`starttls` | `tls` | `ninguna`), usuario, contraseña cifrada y remitente.
 - `configuracion`: una sola fila (id = 1) con las reglas de la maqueta 4g — tolerancia de llegada,
   tiempo mínimo antes de la salida, exigencia del reconocimiento, intentos antes del respaldo y
   jornada máxima por día. Sin fila se usan los valores por defecto de `src/lib/configRules.ts`.
+  Tolerancia de llegada y tiempo mínimo antes de la salida tienen además una versión para
+  voluntarios naturales (`reglasPara` en `src/lib/configRules.ts`).
+
+Universidad / técnica / colegio no es un tipo de usuario: lo dice la institución (maqueta 4f,
+`src/lib/catalogo/`). La interfaz dice siempre **Institución** y **Sede**; «Entidad» solo sobrevive
+como alias de columna al importar. La importación nunca crea instituciones ni sedes: rechaza la
+fila con el nombre que no encontró.
 
 Las horas cumplidas se calculan a partir de `attendance_logs` (pares IN/OUT), no se guardan como
 campo persistente, para evitar inconsistencias. Lo mismo la llegada tarde: se deriva del horario
@@ -168,6 +195,9 @@ asignado y la tolerancia, nunca se guarda.
 - **Intentos antes del respaldo:** fallos seguidos en un kiosko (se reinicia tras 2 min o con un
   reconocimiento) antes de remitir a coordinación / QR.
 - **Jornada máxima por día:** tope de lo que suma cada día en `sumWorkedMs`.
+- **Voluntarios naturales:** acumulan horas igual que los practicantes, pero sin meta (sin
+  horas requeridas, progreso ni fecha estimada de fin). Usan su propia tolerancia de llegada
+  y su propio tiempo mínimo antes de la salida; el resto de reglas es común.
 
 ## Imagen de marca y sistema de diseño
 
@@ -269,7 +299,10 @@ Escala por contexto:
   del día y horas acumuladas.
 - El tipo de marcación se deduce de la última marcación del día; el practicante nunca lo elige.
 - El fallo ofrece el QR del carnet **en la misma pantalla**, con reintento automático y cuenta
-  regresiva visible. Nadie queda atrapado ni debe pedir ayuda para volver al estado inicial.
+  regresiva visible. Solo tras agotar "Intentos antes del respaldo": entonces la pantalla roja
+  muestra una vista en vivo de la cámara y el kiosko busca el QR del carnet virtual
+  (`useQrScanner`) durante 15 s (la maqueta decía 8 s; se amplió para alcanzar a sacar el
+  celular). La marcación por QR va a `POST /api/marcacion/qr` y queda con `metodo = "qr"`. Nadie queda atrapado ni debe pedir ayuda para volver al estado inicial.
 - Vuelve solo al estado de espera (~3 s). Cero interacción táctil o de teclado requerida.
 - **Unidades (implementación):** las maquetas del kiosko usan un lienzo de 1280×720. Dentro de
   `.kiosko-canvas`, `--u` es un píxel de ese lienzo escalado a la pantalla y `--spacing` vale
@@ -305,13 +338,21 @@ Escala por contexto:
 - [ ] Vista de detalle del practicante con historial (maqueta 4d)
 - [ ] Roles de administradores (coordinación / apoyo / consulta, maqueta 4g) — confirmar con la
       cliente; hoy todo administrador puede todo
-- [ ] Catálogo de Entidades y sedes (4f): hoy universidad y entidad son texto libre con
-      autocompletado, y la importación no valida "Entidad no existe"
+- [x] Catálogo de Instituciones y sedes (4f): desplegables en formulario y filtros; la
+      importación valida contra el catálogo
+- [ ] Estado de los kioskos en las tarjetas de sede (4f): requiere el identificador por kiosko
+- [ ] Fusionar instituciones o sedes duplicadas (reasignar sus usuarios) cuando haya datos reales
+- [ ] Días de atención de la sede (la maqueta muestra L–V / L–S)
+- [ ] Reportes por institución y sede (módulo 3)
 - [ ] "Cierre automático sin salida" (4g): hoy una entrada sin salida queda pendiente y no suma
 - [x] Brandear la app con el tema de shadcn/ui (tokens cableados en `globals.css`)
-- [ ] QR del carnet como respaldo en el kiosko (maqueta 1e): definir lector (USB tipo teclado vs.
-      cámara), qué codifica el QR y dónde se guarda; hoy la pantalla de fallo remite a coordinación
-- [ ] Identificador por kiosko (`deviceId` hoy fijo en `kiosko-1`), ligado a Entidades y sedes (4f)
+- [x] QR del carnet como respaldo en el kiosko (maqueta 1e): carnet virtual por correo, leído
+      con la webcam del kiosko
+- [ ] Envío masivo de carnets virtuales (hoy uno por uno desde Editar usuario); con ~2.700
+      practicantes hay que respetar el límite de envíos por hora del proveedor SMTP
+- [ ] Confirmar con IT qué servidor SMTP usar y que la red interna permite la salida a él
+      (puertos 587/465) — sin eso no salen los carnets
+- [ ] Identificador por kiosko (`deviceId` hoy fijo en `kiosko-1`), ligado a Instituciones y sedes (4f)
 
 ## Preferencias de desarrollo
 

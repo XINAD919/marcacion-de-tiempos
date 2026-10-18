@@ -1,3 +1,5 @@
+import { TIPOS_INSTITUCION, TIPO_INSTITUCION_LABEL, type TipoInstitucion } from "@/lib/catalogo/institucion";
+
 export const ESTADO_OPCIONES = [
   { value: "activo", label: "Activo" },
   { value: "inactivo", label: "Inactivo" },
@@ -6,10 +8,20 @@ export const ESTADO_OPCIONES = [
 
 export type Estado = (typeof ESTADO_OPCIONES)[number]["value"];
 
+/** Universidad / Técnica / Colegio salen de la institución; natural, del usuario. */
+export type TipoFiltro = TipoInstitucion | "natural";
+
+export const TIPO_OPCIONES: { value: TipoFiltro; label: string }[] = [
+  ...TIPOS_INSTITUCION.map((value) => ({ value, label: TIPO_INSTITUCION_LABEL[value] })),
+  { value: "natural", label: "Voluntario natural" },
+];
+
 export interface Filters {
   q?: string;
-  universidad?: string;
-  entidad?: string;
+  tipo?: TipoFiltro;
+  /** IDs del catálogo (maqueta 4f). */
+  institucion?: number;
+  sede?: number;
   estado?: Estado;
   page?: number;
 }
@@ -25,19 +37,29 @@ function isEstado(value: string | undefined): value is Estado {
   return ESTADO_OPCIONES.some((option) => option.value === value);
 }
 
+function isTipoFiltro(value: string | undefined): value is TipoFiltro {
+  return TIPO_OPCIONES.some((option) => option.value === value);
+}
+
+function positiveInt(value: string | undefined): number | undefined {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
+}
+
 export function parseUsuarioFilters(params: SearchParams): Filters {
+  const tipo = first(params.tipo);
   const estado = first(params.estado);
-  const page = Number(first(params.page));
   return {
     q: first(params.q),
-    universidad: first(params.universidad),
-    entidad: first(params.entidad),
+    tipo: isTipoFiltro(tipo) ? tipo : undefined,
+    institucion: positiveInt(first(params.institucion)),
+    sede: positiveInt(first(params.sede)),
     estado: isEstado(estado) ? estado : undefined,
-    page: Number.isInteger(page) && page > 0 ? page : 1,
+    page: positiveInt(first(params.page)) ?? 1,
   };
 }
 
-const ORDER: (keyof Filters)[] = ["q", "universidad", "entidad", "estado", "page"];
+const ORDER: (keyof Filters)[] = ["q", "tipo", "institucion", "sede", "estado", "page"];
 
 /**
  * URL del listado con `changes` aplicados. Cualquier cambio que no sea de

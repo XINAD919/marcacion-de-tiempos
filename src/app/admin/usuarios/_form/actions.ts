@@ -19,11 +19,12 @@ export type UsuarioFormState =
   | { status: "error"; message: string; values: Record<string, string> };
 
 const FIELDS: (UsuarioField | "activo")[] = [
+  "tipo",
   "nombre",
   "cedula",
   "email",
-  "universidad",
-  "entidad",
+  "institucionId",
+  "sedeId",
   "horasRequeridas",
   "fechaInicio",
   "horaInicio",
@@ -52,6 +53,13 @@ export async function guardarUsuario(
     : await createUsuario(validation.value);
 
   if (!result.ok) {
+    if ("noDisponible" in result) {
+      const errors =
+        result.noDisponible === "institucionId"
+          ? { institucionId: "Esa institución ya no está disponible; elige otra." }
+          : { sedeId: "Esa sede ya no está disponible; elige otra." };
+      return { status: "invalid", errors, values };
+    }
     return {
       status: "invalid",
       errors: { cedula: `Esta cédula ya está registrada a nombre de ${result.duplicate.nombre}.` },

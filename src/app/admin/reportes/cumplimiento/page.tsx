@@ -15,7 +15,10 @@ import { ASISTENCIA_PATH } from "@/lib/reportes/asistenciaFilters";
 import { msToHours } from "@/lib/reportes/progress";
 import type { ReporteRow } from "@/lib/reportes/rows";
 import { getCumplimiento } from "@/lib/server/reporteService";
-import { PAGE_SIZE, listFilterOptions } from "@/lib/server/usuarioService";
+import { etiquetaOpcion } from "@/lib/catalogo/nombres";
+import { listCatalogo } from "@/lib/server/catalogoService";
+import { PAGE_SIZE } from "@/lib/server/usuarioService";
+import { TIPO_OPCIONES } from "@/lib/usuarios/filters";
 import { formatCedula } from "@/lib/usuarios/userInput";
 import { FiltersBar } from "../filters-bar";
 import { Pagination } from "../pagination";
@@ -30,14 +33,14 @@ export default async function CumplimientoPage({ searchParams }: PageProps<"/adm
   const now = new Date();
   const filters = parseCumplimientoFilters(await searchParams);
 
-  const [{ total, enRiesgo, anillos, rows, page, pages, restoTotal }, options] = await Promise.all([
+  const [{ total, enRiesgo, anillos, rows, page, pages, restoTotal }, catalogo] = await Promise.all([
     getCumplimiento(filters),
-    listFilterOptions(),
+    listCatalogo(),
   ]);
 
   const from = restoTotal === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, restoTotal);
-  const hasFilters = Boolean(filters.q || filters.universidad || filters.entidad);
+  const hasFilters = Boolean(filters.q || filters.tipo || filters.institucion || filters.sede);
 
   return (
     <>
@@ -57,8 +60,9 @@ export default async function CumplimientoPage({ searchParams }: PageProps<"/adm
             basePath={CUMPLIMIENTO_PATH} order={CUMPLIMIENTO_ORDER} params={{ ...filters }}
             defaults={CUMPLIMIENTO_DEFAULTS} tone="dark"
             defs={[
-              { key: "universidad", label: "Universidad / Colegio", options: options.universidades.map((value) => ({ value, label: value })) },
-              { key: "entidad", label: "Entidad", options: options.entidades.map((value) => ({ value, label: value })) },
+              { key: "tipo", label: "Tipo", options: TIPO_OPCIONES },
+              { key: "institucion", label: "Institución", options: catalogo.instituciones.map((item) => ({ value: String(item.id), label: etiquetaOpcion(item) })) },
+              { key: "sede", label: "Sede", options: catalogo.sedes.map((item) => ({ value: String(item.id), label: etiquetaOpcion(item) })) },
               { key: "riesgo", label: "Riesgo", options: RIESGO_OPCIONES, offValue: RIESGO_OFF },
             ]}
           />
@@ -90,7 +94,7 @@ export default async function CumplimientoPage({ searchParams }: PageProps<"/adm
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nombre</TableHead><TableHead>Cédula</TableHead>
-                    <TableHead>Universidad / Colegio</TableHead><TableHead>Entidad</TableHead>
+                    <TableHead>Institución</TableHead><TableHead>Sede</TableHead>
                     <TableHead>Progreso</TableHead><TableHead className="text-right">Cumplidas</TableHead>
                     <TableHead className="text-right">Restantes</TableHead>
                   </TableRow>
@@ -113,7 +117,7 @@ function RingCard({ row, now }: { row: ReporteRow; now: Date }) {
       <div className="flex min-w-0 flex-col gap-2">
         <div className="min-w-0">
           <p className="truncate font-semibold text-navy">{row.nombre}</p>
-          <p className="truncate text-[13px] text-muted-foreground">{row.entidad}</p>
+          <p className="truncate text-[13px] text-muted-foreground">{row.sede ?? row.institucion ?? "Sin afiliación"}</p>
         </div>
         <div className="flex items-baseline gap-2 text-[13px] tabular-nums">
           <span className="text-navy">{hours(row.workedMs)} h cumplidas</span>
@@ -130,8 +134,8 @@ function CumplimientoTableRow({ row }: { row: ReporteRow }) {
     <TableRow>
       <TableCell className="font-semibold text-navy">{row.nombre}</TableCell>
       <TableCell className="tabular-nums">{formatCedula(row.cedula)}</TableCell>
-      <TableCell>{row.universidad}</TableCell>
-      <TableCell>{row.entidad}</TableCell>
+      <TableCell>{row.institucion ?? "—"}</TableCell>
+      <TableCell>{row.sede ?? "—"}</TableCell>
       <TableCell className="min-w-40">
         {row.percent === null ? <span className="text-muted-foreground">Sin meta</span> : (
           <div className="flex items-center gap-2.5">

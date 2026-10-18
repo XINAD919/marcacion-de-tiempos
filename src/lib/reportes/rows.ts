@@ -6,8 +6,8 @@ export interface ReporteUser {
   id: string;
   nombre: string;
   cedula: string;
-  universidad: string;
-  entidad: string;
+  institucion: string | null;
+  sede: string | null;
   activo: boolean;
   horasRequeridas: number;
   horaInicio?: string | null;

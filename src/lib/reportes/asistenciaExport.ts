@@ -12,8 +12,8 @@ export function toAsistenciaExportRows(rows: AsistenciaRow[], esHoy: boolean): R
   return rows.map((row) => ({
     Nombre: row.nombre,
     "Cédula": row.cedula,
-    "Universidad / Colegio": row.universidad,
-    Entidad: row.entidad,
+    "Institución": row.institucion ?? "",
+    Sede: row.sede ?? "",
     Entrada: row.entrada ? formatTime(row.entrada) : "",
     Salida: row.salida ? formatTime(row.salida) : "",
     Estado: estadoTexto(row, esHoy),

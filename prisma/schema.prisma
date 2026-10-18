@@ -12,9 +12,15 @@ model User {
   cedula          String          @unique
   nombre          String
   email           String?
-  universidad     String
-  entidad         String
-  // Las define el convenio con la institución (maqueta 4c).
+  // practicante | natural (src/lib/usuarios/tipoUsuario.ts). Universidad /
+  // técnica / colegio lo dice la institución.
+  tipo            String          @default("practicante") @db.VarChar(20)
+  // Catálogo de la maqueta 4f. NULL para voluntarios naturales.
+  institucionId   Int?
+  institucion     Institucion?    @relation(fields: [institucionId], references: [id])
+  sedeId          Int?
+  sede            Sede?           @relation(fields: [sedeId], references: [id])
+  // Las define el convenio con la institución (maqueta 4c). 0 en naturales.
   horasRequeridas Int             @default(0)
   fechaInicio     DateTime?       @db.Date
   // Horario asignado "HH:mm"; sirve para marcar llegadas tarde.
@@ -24,8 +30,12 @@ model User {
   fechaRegistro   DateTime        @default(now())
   embeddings      FaceEmbedding[]
   attendance      AttendanceLog[]
+  carnet          CarnetVirtual?
 
   @@index([nombre])
+  @@index([tipo])
+  @@index([institucionId])
+  @@index([sedeId])
 }
 
 model Admin {
@@ -46,6 +56,19 @@ model FaceEmbedding {
   fechaCaptura DateTime @default(now())
 
   @@index([userId])
+}
+
+// Carnet virtual: respaldo cuando el rostro no se reconoce. El QR codifica
+// `token`, no la cédula, para que no se pueda fabricar uno a partir de datos
+// públicos. Tabla aparte porque en SQL Server un UNIQUE sobre una columna
+// opcional de User solo admitiría un NULL.
+model CarnetVirtual {
+  userId    String    @id
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique @db.VarChar(64)
+  creadoEn  DateTime  @default(now())
+  enviadoEn DateTime?
+  enviadoA  String?
 }
 
 model AttendanceLog {
@@ -70,10 +93,56 @@ model Configuracion {
   // Tiempo mínimo entre la entrada y la salida del mismo día; antes de eso el
   // kiosko no registra la salida y remite a coordinación.
   minMinutosAntesSalida   Int      @default(60)
+  // Las mismas dos reglas, pero para los voluntarios naturales.
+  toleranciaLlegadaNaturalMin  Int @default(10)
+  minMinutosAntesSalidaNatural Int @default(60)
   // flexible | equilibrado | estricto → umbral de distancia facial.
   exigenciaReconocimiento String   @default("equilibrado") @db.VarChar(20)
   intentosAntesQr         Int      @default(3)
   jornadaMaximaHoras      Int      @default(9)
   actualizadoEn           DateTime @updatedAt
   actualizadoPor          String?
+}
+
+// Correo de salida (SMTP) para enviar carnets virtuales. Una sola fila (id = 1).
+// La contraseña se guarda cifrada con una clave derivada de AUTH_SECRET.
+model ConfiguracionSmtp {
+  id              Int      @id @default(1)
+  host            String
+  puerto          Int
+  // tls (puerto 465) | starttls (587) | ninguna (relay interno, puerto 25)
+  seguridad       String   @default("starttls") @db.VarChar(10)
+  usuario         String?
+  passwordCifrada String?  @db.VarChar(max)
+  remitenteNombre String
+  remitenteEmail  String
+  actualizadoEn   DateTime @updatedAt
+  actualizadoPor  String?
+}
+
+// Instituciones educativas (maqueta 4f). El tipo universidad | tecnica | colegio
+// vive aquí, no en el usuario (src/lib/catalogo/institucion.ts). No se borran:
+// se inactivan.
+model Institucion {
+  id            Int     @id @default(autoincrement())
+  // La intercalación por defecto de SQL Server no distingue mayúsculas: el
+  // UNIQUE impide "universidad nacional" si ya existe "Universidad Nacional".
+  nombre        String  @unique @db.NVarChar(150)
+  tipo          String  @db.VarChar(20)
+  // Se propone como horasRequeridas al asignarla; cada usuario conserva el suyo.
+  horasExigidas Int     @default(0)
+  activa        Boolean @default(true)
+  usuarios      User[]
+}
+
+// Sedes: lugares físicos donde se practica (maqueta 4f). No se borran: se inactivan.
+model Sede {
+  id           Int     @id @default(autoincrement())
+  nombre       String  @unique @db.NVarChar(150)
+  direccion    String? @db.NVarChar(200)
+  // Horario por defecto de sus practicantes, "HH:mm".
+  horaApertura String? @db.VarChar(5)
+  horaCierre   String? @db.VarChar(5)
+  activa       Boolean @default(true)
+  usuarios     User[]
 }

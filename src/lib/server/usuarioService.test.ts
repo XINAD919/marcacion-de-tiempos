@@ -1,20 +1,25 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UsuarioInput } from "@/lib/usuarios/userInput";
+import { guardarInstitucion, guardarSede } from "./catalogoService";
 import { descriptorToBuffer } from "./faceMatcher";
 import { prisma } from "./prisma";
 import { createUsuario, dbDateToIso, insertUsuarios, listCedulas, listUsuarios, updateUsuario } from "./usuarioService";
 
 // Prefijo propio para no chocar con datos reales del entorno de desarrollo.
 const PREFIX = "990077";
-const UNIVERSIDAD = "Universidad de Prueba Servicio";
+const INSTITUCION = "Zz Universidad de Prueba Servicio";
+const SEDE = "Zz Sede de Prueba Servicio";
+let institucionId: number;
+let sedeId: number;
 
 function input(overrides: Partial<UsuarioInput>): UsuarioInput {
   return {
+    tipo: "practicante",
     nombre: "Sin Nombre",
     cedula: `${PREFIX}000`,
     email: null,
-    universidad: UNIVERSIDAD,
-    entidad: "Entidad Prueba",
+    institucionId,
+    sedeId,
     horasRequeridas: 240,
     fechaInicio: null,
     horaInicio: null,
@@ -29,14 +34,29 @@ async function cleanup() {
   const ids = users.map((user) => user.id);
   await prisma.faceEmbedding.deleteMany({ where: { userId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
+  await prisma.institucion.deleteMany({ where: { nombre: INSTITUCION } });
+  await prisma.sede.deleteMany({ where: { nombre: { startsWith: SEDE } } });
 }
 
 beforeAll(async () => {
   await cleanup();
+  const institucion = await guardarInstitucion(null, { nombre: INSTITUCION, tipo: "colegio", horasExigidas: 80, activa: true });
+  const sede = await guardarSede(null, { nombre: SEDE, direccion: null, horaApertura: null, horaCierre: null, activa: true });
+  if (!institucion.ok || !sede.ok) throw new Error("No se pudo crear el catálogo de prueba");
+  institucionId = institucion.id;
+  sedeId = sede.id;
   await insertUsuarios([
     input({ nombre: "Ana Prueba Activa", cedula: `${PREFIX}001` }),
     input({ nombre: "Beto Prueba Inactivo", cedula: `${PREFIX}002`, activo: false }),
     input({ nombre: "Carla Prueba Con Rostro", cedula: `${PREFIX}003` }),
+    input({
+      nombre: "Dora Prueba Natural",
+      cedula: `${PREFIX}004`,
+      tipo: "natural",
+      institucionId: null,
+      sedeId: null,
+      horasRequeridas: 0,
+    }),
   ]);
   const carla = await prisma.user.findUniqueOrThrow({ where: { cedula: `${PREFIX}003` } });
   await prisma.faceEmbedding.create({
@@ -48,12 +68,25 @@ afterAll(cleanup);
 
 describe("listUsuarios", () => {
   const names = async (filters: Parameters<typeof listUsuarios>[0]) =>
-    (await listUsuarios({ universidad: UNIVERSIDAD, ...filters })).rows.map((row) => row.nombre);
+    (await listUsuarios({ institucion: institucionId, ...filters })).rows.map((row) => row.nombre);
 
   it("filtra por estado; 'sin rostro' son activos sin fotos", async () => {
     expect(await names({ estado: "activo" })).toEqual(["Ana Prueba Activa", "Carla Prueba Con Rostro"]);
     expect(await names({ estado: "inactivo" })).toEqual(["Beto Prueba Inactivo"]);
     expect(await names({ estado: "sin-rostro" })).toEqual(["Ana Prueba Activa"]);
+  });
+
+  it("filtra por tipo: natural por el usuario, el resto por su institución", async () => {
+    const naturales = await listUsuarios({ q: "Dora Prueba Natural", tipo: "natural" });
+    expect(naturales.rows.map((row) => [row.nombre, row.institucion, row.sede])).toEqual([["Dora Prueba Natural", null, null]]);
+    expect((await listUsuarios({ q: "Dora Prueba Natural", tipo: "colegio" })).rows).toEqual([]);
+    expect(await names({ tipo: "colegio", estado: "activo" })).toEqual(["Ana Prueba Activa", "Carla Prueba Con Rostro"]);
+    expect(await names({ tipo: "universidad" })).toEqual([]);
+  });
+
+  it("filtra por sede y trae los nombres del catálogo", async () => {
+    const { rows } = await listUsuarios({ sede: sedeId, q: "Ana Prueba" });
+    expect(rows.map((row) => [row.institucion, row.institucionTipo, row.sede])).toEqual([[INSTITUCION, "colegio", SEDE]]);
   });
 
   it("busca por nombre sin distinguir mayúsculas, y por cédula escrita con puntos", async () => {
@@ -62,7 +95,7 @@ describe("listUsuarios", () => {
   });
 
   it("cuenta las fotos de cada usuario", async () => {
-    const { rows } = await listUsuarios({ universidad: UNIVERSIDAD, q: "carla" });
+    const { rows } = await listUsuarios({ institucion: institucionId, q: "carla" });
     expect(rows[0]?.fotos).toBe(1);
   });
 });
@@ -84,6 +117,28 @@ describe("createUsuario / updateUsuario", () => {
     const result = await updateUsuario(ana.id, input({ cedula: `${PREFIX}002` }));
     expect(result).toMatchObject({ ok: false, duplicate: { nombre: "Beto Prueba Inactivo" } });
   });
+
+  it("no asigna una sede inactiva o que no existe", async () => {
+    const cerrada = await guardarSede(null, { nombre: `${SEDE} Cerrada`, direccion: null, horaApertura: null, horaCierre: null, activa: false });
+    if (!cerrada.ok) throw new Error("No se pudo crear la sede");
+    expect(await createUsuario(input({ cedula: `${PREFIX}020`, sedeId: cerrada.id }))).toEqual({ ok: false, noDisponible: "sedeId" });
+    expect(await createUsuario(input({ cedula: `${PREFIX}021`, institucionId: 999_999_999 }))).toEqual({
+      ok: false,
+      noDisponible: "institucionId",
+    });
+    await prisma.sede.delete({ where: { id: cerrada.id } });
+  });
+
+  it("conserva una institución inactiva que ya tenía", async () => {
+    const ana = await prisma.user.findUniqueOrThrow({ where: { cedula: `${PREFIX}001` } });
+    await prisma.institucion.update({ where: { id: institucionId }, data: { activa: false } });
+    try {
+      const result = await updateUsuario(ana.id, input({ nombre: "Ana Prueba Activa", cedula: `${PREFIX}001` }));
+      expect(result).toEqual({ ok: true, id: ana.id });
+    } finally {
+      await prisma.institucion.update({ where: { id: institucionId }, data: { activa: true } });
+    }
+  });
 });
 
 describe("fechaInicio (columna DATE)", () => {
@@ -99,4 +154,13 @@ describe("listCedulas", () => {
   it("devuelve solo las cédulas que ya existen", async () => {
     expect(await listCedulas([`${PREFIX}001`, `${PREFIX}999`])).toEqual(new Set([`${PREFIX}001`]));
   });
+});
+
+describe("insertUsuarios", () => {
+  it("inserta importaciones grandes sin pasar el límite de parámetros de SQL Server", async () => {
+    const inputs = Array.from({ length: 200 }, (_, i) =>
+      input({ nombre: `Lote ${i}`, cedula: `${PREFIX}5${String(i).padStart(3, "0")}` })
+    );
+    expect(await insertUsuarios(inputs)).toBe(200);
+  }, 20000);
 });

@@ -8,8 +8,8 @@ const user: ReporteUser = {
   id: "u1",
   nombre: "Laura Rodríguez",
   cedula: "1019442881",
-  universidad: "Universidad Nacional",
-  entidad: "Sede Centro",
+  institucion: "Universidad Nacional",
+  sede: "Sede Centro",
   activo: true,
   horasRequeridas: 240,
 };

@@ -5,8 +5,7 @@ describe("interpretMarcacionResponse", () => {
   const entrada = {
     matched: true,
     nombre: "Laura Catalina Rodríguez",
-    universidad: "Universidad Nacional",
-    entidad: "Trabajo Social",
+    afiliacion: "Universidad Nacional · Sede Centro",
     hora: "2026-09-14T12:58:00.000Z",
     tipo: "IN",
   };
@@ -16,16 +15,30 @@ describe("interpretMarcacionResponse", () => {
     expect(result).toEqual({
       kind: "entrada",
       nombre: "Laura Catalina Rodríguez",
-      universidad: "Universidad Nacional",
-      entidad: "Trabajo Social",
+      afiliacion: "Universidad Nacional · Sede Centro",
       hora: new Date("2026-09-14T12:58:00.000Z"),
       tardeMin: null,
     });
   });
 
+  it("acepta a un voluntario natural sin institución ni sede", () => {
+    const result = interpretMarcacionResponse(200, {
+      ...entrada,
+      afiliacion: "Voluntario natural",
+    });
+    expect(result).toMatchObject({ kind: "entrada", afiliacion: "Voluntario natural" });
+  });
+
   it("lleva los minutos de retraso cuando la entrada es tarde", () => {
     const result = interpretMarcacionResponse(200, { ...entrada, tardeMin: 12 });
     expect(result).toMatchObject({ kind: "entrada", tardeMin: 12 });
+  });
+
+  it("distingue un carnet virtual no válido de un rostro no reconocido", () => {
+    expect(interpretMarcacionResponse(200, { matched: false, carnet: "invalido" })).toEqual({
+      kind: "fallo",
+      reason: "carnet-invalido",
+    });
   });
 
   it("reconoce una salida anticipada que no se registró", () => {

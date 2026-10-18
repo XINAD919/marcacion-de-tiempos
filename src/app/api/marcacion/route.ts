@@ -7,17 +7,12 @@ import {
 import { matchThresholdFor } from "@/lib/configRules";
 import { getConfig } from "@/lib/server/config";
 import { findMatch } from "@/lib/server/faceMatcher";
-import { earlyExitUntil, lateMinutes } from "@/lib/server/markingRules";
+import { registrarMarcacion } from "@/lib/server/marcacionService";
+import { AFILIACION_INCLUDE } from "@/lib/server/usuarioService";
 import { prisma } from "@/lib/server/prisma";
-import { sumWorkedMs } from "@/lib/server/workedTime";
 
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png"]);
 const MAX_PHOTO_SIZE_BYTES = 2 * 1024 * 1024;
-
-function startOfToday(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -67,68 +62,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ matched: false, intentosAntesQr: config.intentosAntesQr });
   }
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: match.userId } });
-  const lastLogToday = await prisma.attendanceLog.findFirst({
-    where: { userId: user.id, marcadoEn: { gte: startOfToday() } },
-    orderBy: { marcadoEn: "desc" },
-  });
-
-  const tipo = lastLogToday?.tipo === "IN" ? "OUT" : "IN";
-  const now = new Date();
-
-  // Salida demasiado pronto: casi siempre es alguien que pasó dos veces por
-  // el kiosko. No se registra nada; coordinación puede marcarla a mano.
-  if (lastLogToday && tipo === "OUT") {
-    const disponibleDesde = earlyExitUntil(lastLogToday.marcadoEn, now, config.minMinutosAntesSalida);
-    if (disponibleDesde) {
-      console.info(`[marcacion] Salida anticipada rechazada: userId=${user.id} deviceId=${deviceId}`);
-      return NextResponse.json({
-        matched: true,
-        bloqueado: "salida-anticipada",
-        nombre: user.nombre,
-        entrada: lastLogToday.marcadoEn.toISOString(),
-        disponibleDesde: disponibleDesde.toISOString(),
-      });
-    }
-  }
-
-  const log = await prisma.attendanceLog.create({
-    data: { userId: user.id, tipo, metodo: "face", confianza: match.distance, deviceId, marcadoEn: now },
-  });
-
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: match.userId }, include: AFILIACION_INCLUDE });
   console.info(
     `[marcacion] Coincidencia: userId=${user.id} distance=${match.distance} deviceId=${deviceId}`
   );
-
-  const base = {
-    matched: true,
-    nombre: user.nombre,
-    universidad: user.universidad,
-    entidad: user.entidad,
-    hora: log.marcadoEn.toISOString(),
-    tipo,
-  };
-
-  if (tipo === "IN") {
-    // La llegada tarde se deriva del horario; no se guarda en el registro.
-    return NextResponse.json({
-      ...base,
-      tardeMin: lateMinutes(log.marcadoEn, user.horaInicio, config.toleranciaLlegadaMin),
-    });
-  }
-
-  // La salida muestra en el kiosko la jornada del día y las horas acumuladas;
-  // ambas se derivan de los registros, nunca de un campo guardado.
-  const marks = await prisma.attendanceLog.findMany({
-    where: { userId: user.id },
-    select: { tipo: true, marcadoEn: true },
-  });
-  const today = startOfToday();
-  const options = { maxDailyMs: config.jornadaMaximaHoras * 60 * 60 * 1000 };
-
-  return NextResponse.json({
-    ...base,
-    jornadaMs: sumWorkedMs(marks.filter((mark) => mark.marcadoEn >= today), options),
-    acumuladoMs: sumWorkedMs(marks, options),
-  });
+  return NextResponse.json(
+    await registrarMarcacion(user, config, { metodo: "face", confianza: match.distance, deviceId })
+  );
 }

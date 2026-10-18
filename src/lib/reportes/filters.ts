@@ -1,16 +1,18 @@
 import { RIESGO_DEFAULT, RIESGO_OFF, RIESGO_OPCIONES } from "./cumplimiento";
+import { type Filters, parseUsuarioFilters } from "@/lib/usuarios/filters";
 import { type Params, buildHref, toQuery } from "./href";
 
-export type CumplimientoFilters = {
-  q?: string; universidad?: string; entidad?: string; riesgo?: string; page?: number;
+/** Tipo, institución y sede son los mismos filtros del listado de usuarios. */
+export type CumplimientoFilters = Pick<Filters, "q" | "tipo" | "institucion" | "sede"> & {
+  riesgo?: string; page?: number;
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 export const CUMPLIMIENTO_PATH = "/admin/reportes/cumplimiento";
 const EXPORT_PATH = "/api/reportes/export";
-export const CUMPLIMIENTO_ORDER = ["q", "universidad", "entidad", "riesgo", "page"] as const;
-const EXPORT_ORDER = ["q", "universidad", "entidad"] as const;
+export const CUMPLIMIENTO_ORDER = ["q", "tipo", "institucion", "sede", "riesgo", "page"] as const;
+const EXPORT_ORDER = ["q", "tipo", "institucion", "sede"] as const;
 export const CUMPLIMIENTO_DEFAULTS = { riesgo: RIESGO_DEFAULT };
 const RIESGOS_VALIDOS = [...RIESGO_OPCIONES.map((option) => option.value), RIESGO_OFF];
 
@@ -22,8 +24,9 @@ function first(value: string | string[] | undefined): string | undefined {
 export function parseCumplimientoFilters(params: SearchParams): CumplimientoFilters {
   const riesgo = first(params.riesgo);
   const page = Number(first(params.page));
+  const { q, tipo, institucion, sede } = parseUsuarioFilters(params);
   return {
-    q: first(params.q), universidad: first(params.universidad), entidad: first(params.entidad),
+    q, tipo, institucion, sede,
     riesgo: riesgo && RIESGOS_VALIDOS.includes(riesgo) ? riesgo : RIESGO_DEFAULT,
     page: Number.isInteger(page) && page > 0 ? page : 1,
   };

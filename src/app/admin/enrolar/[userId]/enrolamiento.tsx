@@ -110,7 +110,9 @@ export function Enrolamiento({ userId, nombre, detalle, fotosPrevias }: Enrolami
     formData.append("foto", blob, "foto.jpg");
     try {
       const response = await fetch(endpoint, { method: "POST", body: formData });
+      console.log("🚀 ~ capture ~ response:", response)
       const body = await response.json().catch(() => null);
+      console.log("🚀 ~ capture ~ body:", body)
       if (!response.ok) {
         setError(body?.error ?? "No se pudo guardar la foto. Inténtalo de nuevo.");
         return;

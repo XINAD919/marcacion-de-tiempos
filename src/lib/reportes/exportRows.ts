@@ -17,8 +17,8 @@ export function toExportRows(rows: ReporteRow[]): Record<string, string | number
   return rows.map((row) => ({
     Nombre: row.nombre,
     "Cédula": row.cedula,
-    "Universidad / Colegio": row.universidad,
-    Entidad: row.entidad,
+    "Institución": row.institucion ?? "",
+    Sede: row.sede ?? "",
     "Horas requeridas": row.horasRequeridas,
     "Horas cumplidas": msToHours(row.workedMs, 2),
     "Horas restantes": row.remainingMs === null ? "" : msToHours(row.remainingMs, 2),

@@ -1,12 +1,11 @@
+import { type Filters, parseUsuarioFilters } from "@/lib/usuarios/filters";
 import type { EstadoAsistencia } from "./attendance";
 import { addDays, formatDayShort, parseDayParam, startOfDay, toDayParam } from "./dates";
 import { type Params, buildHref, toQuery } from "./href";
 
-export type AsistenciaFilters = {
+/** Tipo, institución y sede son los mismos filtros del listado de usuarios. */
+export type AsistenciaFilters = Pick<Filters, "q" | "tipo" | "institucion" | "sede"> & {
   fecha?: string;
-  q?: string;
-  universidad?: string;
-  entidad?: string;
   estado?: EstadoAsistencia;
   page?: number;
 };
@@ -15,8 +14,8 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 export const ASISTENCIA_PATH = "/admin/reportes";
 const EXPORT_PATH = "/api/reportes/asistencia/export";
-export const ASISTENCIA_ORDER = ["fecha", "q", "universidad", "entidad", "estado", "page"] as const;
-const EXPORT_ORDER = ["fecha", "q", "universidad", "entidad", "estado"] as const;
+export const ASISTENCIA_ORDER = ["fecha", "q", "tipo", "institucion", "sede", "estado", "page"] as const;
+const EXPORT_ORDER = ["fecha", "q", "tipo", "institucion", "sede", "estado"] as const;
 const ESTADOS: EstadoAsistencia[] = ["presente", "marcaron", "tarde", "sin-marcar"];
 
 export function estadoAsistenciaOpciones(esHoy: boolean): { value: EstadoAsistencia; label: string }[] {
@@ -37,11 +36,10 @@ export function parseAsistenciaFilters(params: SearchParams, today: Date): Asist
   const day = parseDayParam(first(params.fecha));
   const estado = first(params.estado) as EstadoAsistencia | undefined;
   const page = Number(first(params.page));
+  const { q, tipo, institucion, sede } = parseUsuarioFilters(params);
   return {
     fecha: day && day.getTime() < startOfDay(today).getTime() ? toDayParam(day) : undefined,
-    q: first(params.q),
-    universidad: first(params.universidad),
-    entidad: first(params.entidad),
+    q, tipo, institucion, sede,
     estado: estado && ESTADOS.includes(estado) ? estado : undefined,
     page: Number.isInteger(page) && page > 0 ? page : 1,
   };

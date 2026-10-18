@@ -13,7 +13,10 @@ import { formatDayLong, formatTime, isSameDay } from "@/lib/reportes/dates";
 import { CUMPLIMIENTO_PATH } from "@/lib/reportes/filters";
 import { msToHours } from "@/lib/reportes/progress";
 import { getAsistencia } from "@/lib/server/reporteService";
-import { PAGE_SIZE, listFilterOptions } from "@/lib/server/usuarioService";
+import { etiquetaOpcion } from "@/lib/catalogo/nombres";
+import { listCatalogo } from "@/lib/server/catalogoService";
+import { PAGE_SIZE } from "@/lib/server/usuarioService";
+import { TIPO_OPCIONES } from "@/lib/usuarios/filters";
 import { formatCedula } from "@/lib/usuarios/userInput";
 import { cn } from "@/lib/utils";
 import { AutoRefresh } from "./auto-refresh";
@@ -34,9 +37,9 @@ export default async function AsistenciaPage({ searchParams }: PageProps<"/admin
   const day = resolveDay(filters, now);
   const esHoy = isSameDay(day, now);
 
-  const [{ summary, rows, total, page, pages }, options] = await Promise.all([
+  const [{ summary, rows, total, page, pages }, catalogo] = await Promise.all([
     getAsistencia(filters, now),
-    listFilterOptions(),
+    listCatalogo(),
   ]);
 
   const estados = estadoAsistenciaOpciones(esHoy);
@@ -49,7 +52,8 @@ export default async function AsistenciaPage({ searchParams }: PageProps<"/admin
 
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, total);
-  const hasFilters = Boolean(filters.q || filters.universidad || filters.entidad || filters.estado);
+  const hasFilters = Boolean(filters.q || filters.tipo || filters.institucion || filters.sede || filters.estado);
+  const sedeFiltrada = catalogo.sedes.find((item) => item.id === filters.sede)?.nombre;
 
   return (
     <>
@@ -69,8 +73,9 @@ export default async function AsistenciaPage({ searchParams }: PageProps<"/admin
           basePath={ASISTENCIA_PATH} order={ASISTENCIA_ORDER} params={{ ...filters }}
           defs={[
             { key: "fecha", label: "Hoy", options: fechaOpciones(now) },
-            { key: "universidad", label: "Universidad / Colegio", options: options.universidades.map((value) => ({ value, label: value })) },
-            { key: "entidad", label: "Entidad", options: options.entidades.map((value) => ({ value, label: value })) },
+            { key: "tipo", label: "Tipo", options: TIPO_OPCIONES },
+            { key: "institucion", label: "Institución", options: catalogo.instituciones.map((item) => ({ value: String(item.id), label: etiquetaOpcion(item) })) },
+            { key: "sede", label: "Sede", options: catalogo.sedes.map((item) => ({ value: String(item.id), label: etiquetaOpcion(item) })) },
             { key: "estado", label: "Estado", options: estados },
           ]}
         />
@@ -112,7 +117,7 @@ export default async function AsistenciaPage({ searchParams }: PageProps<"/admin
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead><TableHead>Cédula</TableHead>
-                <TableHead>Universidad / Colegio</TableHead><TableHead>Entidad</TableHead>
+                <TableHead>Institución</TableHead><TableHead>Sede</TableHead>
                 <TableHead className="text-right">Entrada</TableHead><TableHead className="text-right">Salida</TableHead>
                 <TableHead>Progreso de horas</TableHead>
               </TableRow>
@@ -120,7 +125,7 @@ export default async function AsistenciaPage({ searchParams }: PageProps<"/admin
             <TableBody>{rows.map((row) => <AsistenciaTableRow key={row.id} row={row} />)}</TableBody>
           </Table>
           <Pagination page={page} pages={pages} from={from} to={to} total={total}
-            suffix={filters.entidad ? ` en ${filters.entidad}` : ""}
+            suffix={sedeFiltrada ? ` en ${sedeFiltrada}` : ""}
             hrefFor={(n) => asistenciaHref(filters, { page: n })}
             extra={summary.sinMarcar > 0 && filters.estado !== "sin-marcar" && (
               <Link href={asistenciaHref(filters, { estado: "sin-marcar" })} className="font-semibold text-brand-red-ink hover:underline">
@@ -139,8 +144,8 @@ function AsistenciaTableRow({ row }: { row: AsistenciaRow }) {
     <TableRow>
       <TableCell>{row.nombre}</TableCell>
       <TableCell className="tabular-nums">{formatCedula(row.cedula)}</TableCell>
-      <TableCell>{row.universidad}</TableCell>
-      <TableCell>{row.entidad}</TableCell>
+      <TableCell>{row.institucion ?? "—"}</TableCell>
+      <TableCell>{row.sede ?? "—"}</TableCell>
       <TableCell className="text-right"><Entrada row={row} /></TableCell>
       <TableCell className="text-right tabular-nums">
         {row.salida ? <span className="font-semibold text-navy">{formatTime(row.salida)}</span> : <span className="text-muted-foreground">—</span>}

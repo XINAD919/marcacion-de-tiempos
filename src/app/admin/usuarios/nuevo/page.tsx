@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
-import { listFilterOptions } from "@/lib/server/usuarioService";
+import { listCatalogo } from "@/lib/server/catalogoService";
 import { UsuarioForm } from "../_form/usuario-form";
 
 export const metadata: Metadata = { title: "Crear usuario" };
 
 export default async function NuevoUsuarioPage() {
-  const { universidades, entidades } = await listFilterOptions();
+  const { instituciones, sedes } = await listCatalogo();
 
   return (
     <UsuarioForm
       fotos={0}
-      universidades={universidades}
-      entidades={entidades}
+      instituciones={instituciones}
+      sedes={sedes}
       defaults={{
+        tipo: "practicante",
         nombre: "",
         cedula: "",
         email: "",
-        universidad: "",
-        entidad: "",
+        institucionId: "",
+        sedeId: "",
         horasRequeridas: "",
         fechaInicio: "",
         horaInicio: "",

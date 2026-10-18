@@ -8,10 +8,10 @@ import type { CumplimientoFilters } from "@/lib/reportes/filters";
 import { type ReporteRow, type ReporteUser, buildReporteRow, sortByNombre } from "@/lib/reportes/rows";
 import { getConfig } from "./config";
 import { prisma } from "./prisma";
-import { PAGE_SIZE, whereFor } from "./usuarioService";
+import { PAGE_SIZE, type UsuarioFilters, whereFor } from "./usuarioService";
 import type { AttendanceMark, WorkedTimeOptions } from "./workedTime";
 
-type Scope = { q?: string; universidad?: string; entidad?: string };
+type Scope = Pick<UsuarioFilters, "q" | "tipo" | "institucion" | "sede">;
 
 interface Loaded {
   users: ReporteUser[];
@@ -21,14 +21,15 @@ interface Loaded {
 }
 
 async function load(scope: Scope): Promise<Loaded> {
-  const where = whereFor({ q: scope.q, universidad: scope.universidad, entidad: scope.entidad });
+  const where = whereFor({ q: scope.q, tipo: scope.tipo, institucion: scope.institucion, sede: scope.sede });
 
   const [config, users, logs] = await Promise.all([
     getConfig(),
     prisma.user.findMany({
       where,
       select: {
-        id: true, nombre: true, cedula: true, universidad: true, entidad: true,
+        id: true, nombre: true, cedula: true,
+        institucion: { select: { nombre: true } }, sede: { select: { nombre: true } },
         activo: true, horasRequeridas: true, horaInicio: true, fechaInicio: true,
         _count: { select: { embeddings: true } },
       },
@@ -47,8 +48,10 @@ async function load(scope: Scope): Promise<Loaded> {
   }
 
   return {
-    users: users.map(({ _count, fechaInicio, ...user }) => ({
+    users: users.map(({ _count, fechaInicio, institucion, sede, ...user }) => ({
       ...user,
+      institucion: institucion?.nombre ?? null,
+      sede: sede?.nombre ?? null,
       fechaInicio: fechaInicio ? dateOnlyToLocal(fechaInicio) : null,
       sinRostro: _count.embeddings === 0,
     })),
