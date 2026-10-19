@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { horaSugerida } from "@/lib/marcaciones/correcciones";
 import type { Novedad } from "@/lib/marcaciones/novedades";
-import { formatDayShort, formatTime, toDayParam } from "@/lib/reportes/dates";
+import { formatDayShort, formatTime, startOfDay, toDayParam } from "@/lib/reportes/dates";
 import { msToHours } from "@/lib/reportes/progress";
 import { type DiaHistorial, type MarcaHistorial, getPerfil } from "@/lib/server/marcacionesQuery";
 import { formatCedula } from "@/lib/usuarios/userInput";
@@ -43,13 +43,14 @@ function notaDe(novedad: Novedad, marca: MarcaHistorial): { texto: string; ambar
 
 function armarDia(dia: DiaHistorial): DiaVista {
   const validas = dia.marcas.filter((m) => !m.anuladaEn);
+  const esHoy = dia.dia.getTime() === startOfDay(new Date()).getTime();
   const marcas: MarcaVista[] = dia.marcas.map((m) => {
     const i = validas.indexOf(m);
     const siguiente = i >= 0 ? validas[i + 1] : undefined;
     const anterior = i > 0 ? validas[i - 1] : undefined;
     const tipo = m.tipo === "IN" ? "IN" : "OUT";
     const sinPareja =
-      i < 0 ? null : tipo === "IN" ? (siguiente?.tipo === "OUT" ? null : "Sin salida") : anterior?.tipo === "IN" ? null : "Sin entrada";
+      i < 0 ? null : tipo === "IN" ? (siguiente?.tipo === "OUT" ? null : esHoy ? "En curso" : "Sin salida") : anterior?.tipo === "IN" ? null : "Sin entrada";
     return {
       id: m.id,
       tipo,
@@ -57,6 +58,7 @@ function armarDia(dia: DiaHistorial): DiaVista {
       metodo: m.metodo,
       notas: m.novedades.map((n) => notaDe(n, m)).filter((n): n is { texto: string; ambar: boolean } => n !== null),
       corregida: m.reemplazaAId !== null,
+      reemplazada: m.reemplazada,
       sinPareja,
       anulada: m.anuladaEn ? { motivo: m.motivoAnulacion, por: m.anuladaPor } : null,
       pareja: tipo === "IN" && siguiente?.tipo === "OUT" ? { hora: formatTime(siguiente.marcadoEn) } : null,

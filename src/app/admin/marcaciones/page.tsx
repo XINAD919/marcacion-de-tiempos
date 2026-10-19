@@ -25,9 +25,10 @@ const METODO: Record<string, string> = { face: "Rostro", qr: "QR", manual: "Manu
 
 type SP = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+const MAX_INT = 2 ** 31 - 1; // más allá, SQL Server (int) rechaza el valor
 const positivo = (value: string | undefined) => {
   const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : undefined;
+  return Number.isInteger(n) && n > 0 && n <= MAX_INT ? n : undefined;
 };
 
 function Pildora({ novedad }: { novedad: Novedad }) {
@@ -50,17 +51,22 @@ export default async function MarcacionesPage({ searchParams }: PageProps<"/admi
 
   const [{ rows, resumen }, catalogo] = await Promise.all([getMarcacionesDelDia(scope, now), listCatalogo()]);
 
-  const pagina = todas
-    ? Math.min(positivo(first(sp.page)) ?? 1, Math.max(1, Math.ceil(resumen.pendientes / PENDIENTES_POR_PAGINA)))
-    : 1;
-  const { rows: pendientes, total } = await listPendientes(
-    scope,
-    todas
-      ? { limit: PENDIENTES_POR_PAGINA, offset: (pagina - 1) * PENDIENTES_POR_PAGINA }
-      : { limit: PENDIENTES_RESUMEN, offset: 0 },
-    now,
-  );
+  let pagina = todas ? (positivo(first(sp.page)) ?? 1) : 1;
+  const consulta = (p: number) =>
+    listPendientes(
+      scope,
+      todas
+        ? { limit: PENDIENTES_POR_PAGINA, offset: (p - 1) * PENDIENTES_POR_PAGINA }
+        : { limit: PENDIENTES_RESUMEN, offset: 0 },
+      now,
+    );
+  let { rows: pendientes, total } = await consulta(pagina);
   const paginas = Math.max(1, Math.ceil(total / PENDIENTES_POR_PAGINA));
+  if (todas && pagina > paginas) {
+    // Página más allá del final: se muestra la última.
+    pagina = paginas;
+    ({ rows: pendientes, total } = await consulta(pagina));
+  }
 
   const params: Params = {
     sede, institucion,
@@ -76,7 +82,7 @@ export default async function MarcacionesPage({ searchParams }: PageProps<"/admi
     { label: "Ya salieron", value: resumen.yaSalieron, tone: "text-brand-green-ink" },
     { label: "Llegaron tarde", value: resumen.tarde, tone: "text-brand-amber-ink" },
     { label: "Salidas tempranas", value: resumen.salidasTempranas, tone: "text-brand-amber-ink" },
-    { label: "Salidas sin marcar", value: resumen.pendientes, tone: "text-brand-red-ink", pendiente: true },
+    { label: "Salidas sin marcar", value: total, tone: "text-brand-red-ink", pendiente: true },
   ];
 
   return (
@@ -116,7 +122,7 @@ export default async function MarcacionesPage({ searchParams }: PageProps<"/admi
             <h2 id="sin-marcar" className="text-lg font-bold tracking-[-0.02em] text-navy">
               Salidas sin marcar <span className="tabular-nums">({countFormat.format(total)})</span>
             </h2>
-            <p className="text-sm text-muted-foreground">Entradas de días anteriores sin salida. No suman horas hasta corregirlas</p>
+            <p className="text-sm text-muted-foreground">Marcaciones sin pareja: entradas de días anteriores sin salida y salidas sin entrada. No suman horas hasta corregirlas</p>
           </div>
           {pendientes.length === 0 ? (
             <p className="px-6 pb-6 text-sm text-muted-foreground">No hay salidas sin marcar.</p>

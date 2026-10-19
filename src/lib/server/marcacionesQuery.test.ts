@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { anular } from "./correccionService";
+import { anular, corregirHora, reasignar } from "./correccionService";
 import { getMarcacionesDelDia, getPerfil, listPendientes } from "./marcacionesQuery";
 import { prisma } from "./prisma";
 
@@ -93,6 +93,41 @@ describe("getPerfil", () => {
     expect(anulada.anuladaEn).not.toBeNull();
     expect(perfil!.avance.workedMs).toBe(0);
     expect(perfil!.inconsistencias.map((i) => i.tipo)).toEqual(["sin-entrada"]);
+  });
+
+  it("las horas del avance son la suma de las jornadas de dias (sin tope)", async () => {
+    const now = dia(0, 15);
+    await marca(userId, "IN", dia(3, 8));
+    await marca(userId, "OUT", dia(3, 11));
+    await marca(userId, "IN", dia(2, 9));
+    await marca(userId, "OUT", dia(2, 14));
+    const abierta = await marca(userId, "IN", dia(1, 8)); // sin salida
+    await marca(userId, "OUT", dia(0, 10)); // salida huérfana de hoy: no se empareja con la de ayer
+    expect(abierta.id).toBeTruthy();
+
+    const perfil = await getPerfil(userId, 1, now);
+    expect(perfil!.dias.reduce((n, d) => n + d.jornadaMs, 0)).toBe(8 * HOUR);
+    expect(perfil!.avance.workedMs).toBe(perfil!.dias.reduce((n, d) => n + d.jornadaMs, 0));
+  });
+
+  it("marca como reemplazada la anulada que ya tiene una corrección válida", async () => {
+    const now = dia(0, 15);
+    const entrada = await marca(userId, "IN", dia(2, 8));
+    await marca(userId, "OUT", dia(2, 12));
+    const suelta = await marca(userId, "IN", dia(1, 8));
+    await marca(userId, "OUT", dia(1, 12));
+    await corregirHora({ adminId, motivo: "Hora mal marcada", marcaId: entrada.id, hora: dia(2, 8, 30), now });
+    const reasignada = await marca(userId, "IN", dia(3, 8));
+    await reasignar({ adminId, motivo: "Era otra persona", marcaId: reasignada.id, destinoUserId: otroId, now });
+    await anular({ adminId, motivo: "Marcada por error", marcaId: suelta.id, incluirPareja: false, now });
+
+    const perfil = await getPerfil(userId, 1, now);
+    const marcas = perfil!.dias.flatMap((d) => d.marcas);
+    const por = (id: string) => marcas.find((m) => m.id === id)!;
+    expect(por(entrada.id)).toMatchObject({ anuladaEn: expect.any(Date), reemplazada: true });
+    expect(por(reasignada.id)).toMatchObject({ anuladaEn: expect.any(Date), reemplazada: true });
+    expect(por(suelta.id)).toMatchObject({ anuladaEn: expect.any(Date), reemplazada: false });
+    expect(marcas.filter((m) => !m.anuladaEn).every((m) => !m.reemplazada)).toBe(true);
   });
 
   it("devuelve null si el usuario no existe", async () => {

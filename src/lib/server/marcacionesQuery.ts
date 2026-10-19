@@ -26,6 +26,8 @@ export interface MarcaHistorial {
   motivoAnulacion: string | null;
   anuladaPor: string | null;
   reemplazaAId: string | null;
+  /** Una corrección válida ya ocupa su lugar: no se puede restaurar. */
+  reemplazada: boolean;
   novedades: Novedad[];
 }
 
@@ -56,7 +58,7 @@ interface ContextoNovedades {
 }
 
 /** Arma las marcas de un día; las anuladas no llevan novedades (ya no cuentan). */
-function marcasHistorial(filas: Fila[], ctx: ContextoNovedades): MarcaHistorial[] {
+function marcasHistorial(filas: Fila[], ctx: ContextoNovedades, reemplazadas: ReadonlySet<string> = new Set()): MarcaHistorial[] {
   const primeraEntrada = filas.filter((f) => !f.anuladaEn && f.tipo === "IN")[0];
   return filas.map((f) => ({
     id: f.id,
@@ -69,6 +71,7 @@ function marcasHistorial(filas: Fila[], ctx: ContextoNovedades): MarcaHistorial[
     motivoAnulacion: f.motivoAnulacion,
     anuladaPor: f.anuladaPor?.nombre ?? null,
     reemplazaAId: f.reemplazaAId,
+    reemplazada: reemplazadas.has(f.id),
     novedades: f.anuladaEn ? [] : novedadesDe(f, { ...ctx, primeraEntradaDelDia: f.id === primeraEntrada?.id }),
   }));
 }
@@ -108,12 +111,27 @@ export async function getPerfil(userId: string, page: number, now: Date = new Da
     worked,
   );
 
+  // Una anulada está reemplazada si alguna fila válida la señala; las copias de «reasignar»
+  // son de otra persona, por eso se consultan aparte (una sola consulta para todas).
+  const anuladasIds = filas.filter((f) => f.anuladaEn).map((f) => f.id);
+  const reemplazadas = new Set<string>(
+    filas.filter((f) => !f.anuladaEn).map((f) => f.reemplazaAId).filter((id): id is string => id !== null && anuladasIds.includes(id)),
+  );
+  const sinResolver = anuladasIds.filter((id) => !reemplazadas.has(id));
+  if (sinResolver.length > 0) {
+    const copias = await prisma.attendanceLog.findMany({
+      where: { ...MARCACION_VALIDA, reemplazaAId: { in: sinResolver } },
+      select: { reemplazaAId: true },
+    });
+    for (const c of copias) if (c.reemplazaAId) reemplazadas.add(c.reemplazaAId);
+  }
+
   const todos = [...marcasPorDia(filas).entries()].sort((a, b) => b[0].localeCompare(a[0]));
   const pages = Math.max(1, Math.ceil(todos.length / DIAS_POR_PAGINA));
   const actual = Math.min(Math.max(1, Math.trunc(page) || 1), pages);
   const dias: DiaHistorial[] = todos.slice((actual - 1) * DIAS_POR_PAGINA, actual * DIAS_POR_PAGINA).map(([, delDia]) => ({
     dia: startOfDay(delDia[0]!.marcadoEn),
-    marcas: marcasHistorial(delDia, ctx),
+    marcas: marcasHistorial(delDia, ctx, reemplazadas),
     jornadaMs: sumWorkedMs(delDia.filter((f) => !f.anuladaEn), worked),
   }));
 
@@ -175,14 +193,19 @@ export async function listPendientes(
   now: Date = new Date(),
 ): Promise<{ rows: Pendiente[]; total: number }> {
   const cte = pendientesCte(scope, now);
-  const [ids, conteo] = await Promise.all([
-    prisma.$queryRaw<{ id: string }[]>`${cte}
-      SELECT id FROM p ORDER BY dia DESC, marcadoEn ASC, id
-      OFFSET ${Math.max(0, opts.offset)} ROWS FETCH NEXT ${Math.max(1, opts.limit)} ROWS ONLY`,
-    prisma.$queryRaw<{ total: number }[]>`${cte} SELECT COUNT(*) AS total FROM p`,
-  ]);
-  const total = Number(conteo[0]?.total ?? 0);
-  if (ids.length === 0) return { rows: [], total };
+  const offset = Math.max(0, opts.offset);
+  const ids = await prisma.$queryRaw<{ id: string; total: number }[]>`${cte}
+    SELECT id, COUNT(*) OVER() AS total FROM p ORDER BY dia DESC, marcadoEn ASC, id
+    OFFSET ${offset} ROWS FETCH NEXT ${Math.max(1, opts.limit)} ROWS ONLY`;
+  let total = Number(ids[0]?.total ?? 0);
+  if (ids.length === 0) {
+    // Página vacía: con offset 0 no hay nada; más allá del final solo el conteo dice cuántas hay.
+    if (offset > 0) {
+      const conteo = await prisma.$queryRaw<{ total: number }[]>`${cte} SELECT COUNT(*) AS total FROM p`;
+      total = Number(conteo[0]?.total ?? 0);
+    }
+    return { rows: [], total };
+  }
 
   const filas = await prisma.attendanceLog.findMany({
     where: { id: { in: ids.map((r) => r.id) } },
@@ -216,7 +239,7 @@ export interface MarcacionDelDia {
 
 export async function getMarcacionesDelDia(scope: Scope, now: Date = new Date()) {
   const inicio = startOfDay(now);
-  const [config, logs, pendientes] = await Promise.all([
+  const [config, logs] = await Promise.all([
     getConfig(),
     prisma.attendanceLog.findMany({
       where: {
@@ -230,7 +253,6 @@ export async function getMarcacionesDelDia(scope: Scope, now: Date = new Date())
         user: { select: { id: true, nombre: true, tipo: true, horaInicio: true, horaFin: true, sede: { select: { horaCierre: true } } } },
       },
     }),
-    listPendientes(scope, { limit: 1, offset: 0 }, now),
   ]);
 
   const porUsuario = new Map<string, typeof logs>();
@@ -240,7 +262,7 @@ export async function getMarcacionesDelDia(scope: Scope, now: Date = new Date())
     else porUsuario.set(log.userId, [log]);
   }
 
-  const resumen = { dentroAhora: 0, yaSalieron: 0, tarde: 0, salidasTempranas: 0, pendientes: pendientes.total };
+  const resumen = { dentroAhora: 0, yaSalieron: 0, tarde: 0, salidasTempranas: 0 };
   const rows: MarcacionDelDia[] = [];
   for (const delUsuario of porUsuario.values()) {
     const { user } = delUsuario[0]!;

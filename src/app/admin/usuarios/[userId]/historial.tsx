@@ -19,6 +19,8 @@ export interface MarcaVista {
   /** Texto de cada novedad, ya armado en el servidor. */
   notas: { texto: string; ambar: boolean }[];
   corregida: boolean;
+  /** Una corrección válida ya ocupa su lugar: no se puede restaurar. */
+  reemplazada: boolean;
   /** "Sin salida" / "Sin entrada" cuando la marca no tiene pareja en su día. */
   sinPareja: string | null;
   anulada: { motivo: string | null; por: string | null } | null;
@@ -38,6 +40,7 @@ const METODO: Record<string, string> = { face: "Rostro", qr: "QR", manual: "Manu
 
 function Acciones({ marca }: { marca: MarcaVista }) {
   if (marca.anulada) {
+    if (marca.reemplazada) return <span className="text-muted-foreground">Reemplazada por una corrección</span>;
     return <RestaurarDialog marcaId={marca.id} trigger="Restaurar" />;
   }
   return (
@@ -59,7 +62,7 @@ function FilaMarca({ marca }: { marca: MarcaVista }) {
       <div className="flex min-w-0 flex-wrap items-center gap-2 text-[14.5px]">
         <span className={cn("font-semibold text-navy tabular-nums", anulada && "line-through")}>{marca.hora}</span>
         <span className={cn("text-muted-foreground", anulada && "line-through")}>· {METODO[marca.metodo] ?? marca.metodo}</span>
-        {marca.sinPareja && !anulada && <Badge variant="sin-rostro">{marca.sinPareja}</Badge>}
+        {marca.sinPareja && !anulada && <Badge variant={marca.sinPareja === "En curso" ? "inactivo" : "sin-rostro"}>{marca.sinPareja}</Badge>}
         {marca.corregida && !anulada && <Badge variant="inactivo">Corregida</Badge>}
         {!anulada &&
           marca.notas.map((nota) => (
