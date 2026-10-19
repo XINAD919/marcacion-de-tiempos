@@ -121,6 +121,32 @@ describe("corregirHora", () => {
   });
 });
 
+describe("concurrencia", () => {
+  it("dos correcciones simultáneas de la misma marca dejan una sola copia válida", async () => {
+    await marca(userId, "IN", ayer(8));
+    const salida = await marca(userId, "OUT", ayer(12));
+    const [a, b] = await Promise.all([
+      corregirHora({ ...base(), marcaId: salida.id, hora: ayer(11) }),
+      corregirHora({ ...base(), marcaId: salida.id, hora: ayer(10) }),
+    ]);
+    expect([a, b].filter((r) => r.ok)).toHaveLength(1);
+    const fallo = [a, b].find((r) => !r.ok);
+    expect(fallo).toMatchObject({ ok: false });
+    expect((await validas(userId)).filter((m) => m.tipo === "OUT")).toHaveLength(1);
+    const reemplazos = await prisma.attendanceLog.count({ where: { reemplazaAId: salida.id } });
+    expect(reemplazos).toBe(1);
+  });
+
+  it("anular dos veces la misma marca no pisa la primera anulación", async () => {
+    const entrada = await marca(userId, "IN", ayer(8));
+    await anular({ adminId, motivo: "Primer motivo", marcaId: entrada.id, incluirPareja: false });
+    const r = await anular({ adminId, motivo: "Segundo motivo", marcaId: entrada.id, incluirPareja: false });
+    expect(r).toEqual({ ok: false, message: MENSAJE.noExiste });
+    const fila = await prisma.attendanceLog.findUniqueOrThrow({ where: { id: entrada.id } });
+    expect(fila.motivoAnulacion).toBe("Primer motivo");
+  });
+});
+
 describe("anular", () => {
   it("sin pareja deja la salida sin entrada", async () => {
     const entrada = await marca(userId, "IN", ayer(8));

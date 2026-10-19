@@ -46,15 +46,35 @@ function manual(
   };
 }
 
-const anularFila = (tx: Tx, id: string, i: Base, now: Date) =>
-  tx.attendanceLog.update({ where: { id }, data: { anuladaEn: now, anuladaPorId: i.adminId, motivoAnulacion: i.motivo } });
+/** Aborta la transacción (revierte todo) cuando otra persona se adelantó. */
+class Conflicto extends Error {}
+
+/** Anula solo si sigue válida; si otra persona ya la anuló, revierte la transacción. */
+async function anularFila(tx: Tx, id: string, i: Base, now: Date) {
+  const { count } = await tx.attendanceLog.updateMany({
+    where: { id, anuladaEn: null },
+    data: { anuladaEn: now, anuladaPorId: i.adminId, motivoAnulacion: i.motivo },
+  });
+  if (count === 0) throw new Conflicto();
+}
+
+const MENSAJE_CONCURRENCIA = "Otra persona estaba corrigiendo esta marcación. Recarga la página e inténtalo de nuevo.";
 
 /** Valida el motivo y corre `fn` en una transacción (solo escribe tras pasar todas las reglas). */
 function run(i: Base, fn: (tx: Tx, now: Date, b: Base) => Promise<CorreccionResult>): Promise<CorreccionResult> {
   const motivo = parseMotivo(i.motivo);
   if (!motivo.ok) return Promise.resolve(fail(motivo.error, "motivo"));
   const b = { ...i, motivo: motivo.value };
-  return prisma.$transaction((tx) => fn(tx, i.now ?? new Date(), b));
+  return prisma
+    .$transaction((tx) => fn(tx, i.now ?? new Date(), b), { isolationLevel: "Serializable" })
+    .catch((error: unknown): CorreccionResult => {
+      if (error instanceof Conflicto) return noExiste();
+      // P2034: conflicto de escritura o interbloqueo entre transacciones en paralelo.
+      if (typeof error === "object" && error !== null && (error as { code?: string }).code === "P2034") {
+        return fail(MENSAJE_CONCURRENCIA);
+      }
+      throw error;
+    });
 }
 
 export function registrarSalida(i: Base & { entradaId: string; hora: Date }): Promise<CorreccionResult> {
