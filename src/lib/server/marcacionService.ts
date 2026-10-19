@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { type ConfigValues, reglasPara } from "@/lib/configRules";
 import { describeAfiliacion } from "@/lib/usuarios/tipoUsuario";
 import { earlyExitUntil, lateMinutes } from "./markingRules";
+import { MARCACION_VALIDA } from "./marcacionValida";
 import { prisma } from "./prisma";
 import { AFILIACION_INCLUDE } from "./usuarioService";
 import { sumWorkedMs } from "./workedTime";
@@ -28,7 +29,7 @@ export async function registrarMarcacion(user: UsuarioMarcacion, config: ConfigV
   // Tolerancia y mínimo antes de la salida dependen del tipo de usuario.
   const reglas = reglasPara(config, user.tipo);
   const lastLogToday = await prisma.attendanceLog.findFirst({
-    where: { userId: user.id, marcadoEn: { gte: startOfToday() } },
+    where: { userId: user.id, marcadoEn: { gte: startOfToday() }, ...MARCACION_VALIDA },
     orderBy: { marcadoEn: "desc" },
   });
 
@@ -71,7 +72,7 @@ export async function registrarMarcacion(user: UsuarioMarcacion, config: ConfigV
   // La salida muestra en el kiosko la jornada del día y las horas acumuladas;
   // ambas se derivan de los registros, nunca de un campo guardado.
   const marks = await prisma.attendanceLog.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, ...MARCACION_VALIDA },
     select: { tipo: true, marcadoEn: true },
   });
   const today = startOfToday();

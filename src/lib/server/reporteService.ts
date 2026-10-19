@@ -7,6 +7,7 @@ import { dateOnlyToLocal } from "@/lib/reportes/dates";
 import type { CumplimientoFilters } from "@/lib/reportes/filters";
 import { type ReporteRow, type ReporteUser, buildReporteRow, sortByNombre } from "@/lib/reportes/rows";
 import { getConfig } from "./config";
+import { MARCACION_VALIDA } from "./marcacionValida";
 import { prisma } from "./prisma";
 import { PAGE_SIZE, type UsuarioFilters, whereFor } from "./usuarioService";
 import type { AttendanceMark, WorkedTimeOptions } from "./workedTime";
@@ -35,7 +36,7 @@ async function load(scope: Scope): Promise<Loaded> {
       },
     }),
     prisma.attendanceLog.findMany({
-      where: { user: where },
+      where: { user: where, ...MARCACION_VALIDA },
       select: { userId: true, tipo: true, marcadoEn: true },
     }),
   ]);
