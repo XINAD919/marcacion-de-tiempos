@@ -36,8 +36,8 @@ describe("buildReporteRow", () => {
     const row = buildReporteRow(
       user,
       [
-        { tipo: "IN", marcadoEn: at("08:00") },
-        { tipo: "OUT", marcadoEn: at("07:00", "2026-09-15") },
+        { tipo: "IN", marcadoEn: at("06:00") },
+        { tipo: "OUT", marcadoEn: at("20:00") },
       ],
       { maxDailyMs: 9 * HOUR }
     );
