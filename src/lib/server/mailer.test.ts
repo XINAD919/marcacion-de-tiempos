@@ -13,6 +13,11 @@ describe("clasificarMailError", () => {
   it("los rechazos del destinatario no frenan el lote", () => {
     expect(clasificarMailError({ code: "EENVELOPE" })).toBe("destinatario");
     expect(clasificarMailError({ responseCode: 550 })).toBe("destinatario");
-    expect(clasificarMailError(new Error("x"))).toBe("destinatario");
+  });
+
+  it("lo que no parece error de correo pausa el lote", () => {
+    expect(clasificarMailError(new Error("x"))).toBe("global");
+    expect(clasificarMailError({ name: "PrismaClientInitializationError" })).toBe("global");
+    expect(clasificarMailError({ code: "P1001" })).toBe("global");
   });
 });

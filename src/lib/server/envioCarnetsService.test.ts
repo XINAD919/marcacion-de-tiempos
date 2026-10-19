@@ -265,6 +265,32 @@ describe("recuperarAlArrancar", () => {
   });
 });
 
+describe("recuperación en marcha", () => {
+  it("un item enviando hace 11 min se marca error sin reiniciar y el envío termina", async () => {
+    await crearUsuario("001");
+    const envioId = await iniciar();
+    const now = ahora();
+    await prisma.envioCarnetItem.updateMany({
+      where: { envioId },
+      data: { estado: "enviando", intentadoEn: mas(now, -11 * 60_000) },
+    });
+    const { enviar } = enviarSimulado();
+    expect(await procesarSiguiente({ enviar, now })).toBe("terminado");
+    expect((await estadoItem(envioId, "001")).estado).toBe("error");
+    expect((await prisma.envioCarnets.findUniqueOrThrow({ where: { id: envioId } })).estado).toBe("terminado");
+  });
+});
+
+describe("iniciarEnvio en paralelo", () => {
+  it("solo uno inicia; el otro recibe hay-otro sin excepción", async () => {
+    await crearUsuario("001");
+    const resultados = await Promise.all([iniciarEnvio(adminId), iniciarEnvio(adminId)]);
+    expect(resultados.filter((r) => r.ok)).toHaveLength(1);
+    const otro = resultados.find((r) => !r.ok);
+    expect(otro).toMatchObject({ ok: false, reason: "hay-otro" });
+  });
+});
+
 describe("getEnvio", () => {
   it("lista los errores con nombre y correo", async () => {
     await crearUsuario("001");

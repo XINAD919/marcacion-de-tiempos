@@ -36,7 +36,24 @@ export type IniciarEnvioResult =
   | { ok: false; reason: "hay-otro"; envioId: string }
   | { ok: false; reason: "sin-pendientes" };
 
+/** Un solo envío a la vez: si la transacción choca con otra igual, se reintenta una vez. */
 export async function iniciarEnvio(adminId: string): Promise<IniciarEnvioResult> {
+  for (let intento = 0; ; intento++) {
+    try {
+      return await crearEnvio(adminId);
+    } catch (error) {
+      const choque = (error as { code?: unknown })?.code === "P2034";
+      if (!choque) throw error;
+      if (intento >= 1) {
+        const otro = await prisma.envioCarnets.findFirst({ where: { estado: { in: ACTIVOS } }, select: { id: true } });
+        if (otro) return { ok: false, reason: "hay-otro", envioId: otro.id };
+        throw error;
+      }
+    }
+  }
+}
+
+async function crearEnvio(adminId: string): Promise<IniciarEnvioResult> {
   return prisma.$transaction(
     async (tx): Promise<IniciarEnvioResult> => {
       const otro = await tx.envioCarnets.findFirst({ where: { estado: { in: ACTIVOS } }, select: { id: true } });
@@ -160,6 +177,8 @@ export async function procesarSiguiente(
   deps: { now?: Date; enviar?: (userId: string) => Promise<SendCarnetResult> } = {}
 ): Promise<ResultadoPaso> {
   const now = deps.now ?? new Date();
+  // Un item que quedó enviando (reinicio, fallo al guardar) no debe bloquear el lote.
+  await recuperarAlArrancar(now);
   const enviar = deps.enviar ?? ((userId: string) => sendCarnet(userId));
 
   const envio = await prisma.envioCarnets.findFirst({ where: { estado: "en-curso" }, orderBy: { creadoEn: "asc" } });

@@ -148,8 +148,15 @@ const CODIGOS_GLOBALES = new Set(["EAUTH", "ECONNECTION", "ETIMEDOUT", "ESOCKET"
  */
 export function clasificarMailError(error: unknown): "global" | "destinatario" {
   if (error instanceof SmtpNotConfiguredError) return "global";
-  const code = typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
-  return typeof code === "string" && CODIGOS_GLOBALES.has(code) ? "global" : "destinatario";
+  const e = typeof error === "object" && error !== null ? (error as { code?: unknown; responseCode?: unknown; name?: unknown }) : {};
+  if (typeof e.code === "string" && CODIGOS_GLOBALES.has(e.code)) return "global";
+  // Errores de Prisma (base de datos caída, etc.): afectan a todos los envíos.
+  if (typeof e.name === "string" && e.name.startsWith("PrismaClient")) return "global";
+  if (typeof e.code === "string" && /^P\d{4}$/.test(e.code)) return "global";
+  // Solo un error con forma de respuesta SMTP (code o responseCode) es del
+  // destinatario; si no se reconoce, mejor pausar que marcar error uno por uno.
+  const esDeCorreo = typeof e.code === "string" || typeof e.responseCode === "number";
+  return esDeCorreo ? "destinatario" : "global";
 }
 
 /**
