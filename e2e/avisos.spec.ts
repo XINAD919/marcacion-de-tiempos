@@ -10,8 +10,24 @@ const CEDULA = `9800${String(Date.now()).slice(-6)}`;
 
 test.use({ viewport: { width: 1366, height: 768 } });
 
+// Fila de configuración tal como estaba (null si no existía): se restaura aunque la prueba falle.
+let configOriginal: Awaited<ReturnType<PrismaClient["configuracion"]["findUnique"]>> = null;
+
+test.beforeAll(async () => {
+  const prisma = new PrismaClient();
+  configOriginal = await prisma.configuracion.findUnique({ where: { id: 1 } });
+  await prisma.$disconnect();
+});
+
 test.afterAll(async () => {
   const prisma = new PrismaClient();
+  if (configOriginal) {
+    const { id, actualizadoEn, ...datos } = configOriginal;
+    void actualizadoEn;
+    await prisma.configuracion.update({ where: { id }, data: datos });
+  } else {
+    await prisma.configuracion.deleteMany({ where: { id: 1 } });
+  }
   await prisma.user.deleteMany({ where: { cedula: CEDULA } });
   await prisma.institucion.deleteMany({ where: { nombre: INSTITUCION } });
   await prisma.sede.deleteMany({ where: { nombre: SEDE } });
@@ -67,15 +83,14 @@ test("los avisos confirman el éxito y señalan los campos con error", async ({ 
   await page.goto("/admin/usuarios/importar");
   await expect(page.getByRole("heading", { name: "Sube el Excel de practicantes" })).toBeVisible();
 
-  // Configuración: guardar muestra el aviso; se restaura el valor original.
+  // Configuración: guardar muestra el aviso y el valor persiste (afterAll restaura el original).
   await page.goto("/admin/configuracion");
   const tolerancia = page.locator("#toleranciaLlegadaMin");
   await expect(tolerancia).toBeVisible();
-  const original = await tolerancia.inputValue();
-  await tolerancia.fill(String(Number(original) + 1));
+  const nuevo = String(Number(await tolerancia.inputValue()) + 1);
+  await tolerancia.fill(nuevo);
   await page.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(page.getByText("Configuración guardada", { exact: true })).toBeVisible();
-  await tolerancia.fill(original);
-  await page.getByRole("button", { name: "Guardar cambios" }).click();
-  await expect(page.getByText("Configuración guardada", { exact: true })).toHaveCount(2);
+  await page.reload();
+  await expect(page.locator("#toleranciaLlegadaMin")).toHaveValue(nuevo);
 });
