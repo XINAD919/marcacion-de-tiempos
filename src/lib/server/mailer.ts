@@ -139,6 +139,19 @@ export async function sendTestMail(to: string): Promise<void> {
   });
 }
 
+const CODIGOS_GLOBALES = new Set(["EAUTH", "ECONNECTION", "ETIMEDOUT", "ESOCKET", "EDNS", "ETLS"]);
+
+/**
+ * Un error global (servidor, credenciales, red) afectará a todos los envíos
+ * siguientes: el envío masivo se pausa. Cualquier otro es del destinatario y
+ * solo marca ese item.
+ */
+export function clasificarMailError(error: unknown): "global" | "destinatario" {
+  if (error instanceof SmtpNotConfiguredError) return "global";
+  const code = typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
+  return typeof code === "string" && CODIGOS_GLOBALES.has(code) ? "global" : "destinatario";
+}
+
 /**
  * Traduce los errores de nodemailer a algo que la coordinadora pueda pasar a
  * sistemas. El error crudo va al log del servidor, nunca a la pantalla.

@@ -175,6 +175,25 @@ export function ConfigForm({ config, aside, children }: ConfigFormProps) {
                 />
               </SettingRow>
             </SettingsCard>
+
+            <SettingsCard title="Carnets virtuales">
+              <SettingRow
+                htmlFor="carnetsPorHora"
+                title="Carnets por hora"
+                description="Cuántos carnets virtuales se envían como máximo por hora. Ajústalo al límite de tu proveedor de correo."
+                error={errors.carnetsPorHora}
+              >
+                <UnitInput
+                  id="carnetsPorHora"
+                  name="carnetsPorHora"
+                  unit="por hora"
+                  inputMode="numeric"
+                  defaultValue={value("carnetsPorHora", String(config.carnetsPorHora))}
+                  aria-invalid={Boolean(errors.carnetsPorHora) || undefined}
+                  aria-describedby={describedBy("carnetsPorHora")}
+                />
+              </SettingRow>
+            </SettingsCard>
           </form>
 
           {children}

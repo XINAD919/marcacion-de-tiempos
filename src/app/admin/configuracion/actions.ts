@@ -27,6 +27,7 @@ const FIELDS: ConfigField[] = [
   "exigenciaReconocimiento",
   "intentosAntesQr",
   "jornadaMaximaHoras",
+  "carnetsPorHora",
 ];
 
 export async function guardarConfiguracion(

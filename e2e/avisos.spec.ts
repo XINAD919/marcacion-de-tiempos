@@ -34,6 +34,18 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
+test("Configuración muestra el tope de carnets por hora", async ({ page }) => {
+  await page.goto("/login");
+  await page.locator('input[name="email"]').fill(process.env.SEED_ADMIN_EMAIL!);
+  await page.locator('input[name="password"]').fill(process.env.SEED_ADMIN_PASSWORD!);
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL(/\/admin/);
+  await page.goto("/admin/configuracion");
+  await expect(page.getByText("Carnets por hora", { exact: true })).toBeVisible();
+  const esperado = String(configOriginal?.carnetsPorHora ?? 100);
+  await expect(page.locator("#carnetsPorHora")).toHaveValue(esperado);
+});
+
 test("los avisos confirman el éxito y señalan los campos con error", async ({ page }) => {
   test.setTimeout(120000);
   await page.goto("/login");

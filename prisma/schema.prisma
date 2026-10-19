@@ -117,6 +117,8 @@ model Configuracion {
   exigenciaReconocimiento      String   @default("equilibrado") @db.VarChar(20)
   intentosAntesQr              Int      @default(3)
   jornadaMaximaHoras           Int      @default(9)
+  // Tope del envío masivo de carnets virtuales (límite del proveedor de correo).
+  carnetsPorHora               Int      @default(100)
   actualizadoEn                DateTime @updatedAt
   actualizadoPor               String?
 }
