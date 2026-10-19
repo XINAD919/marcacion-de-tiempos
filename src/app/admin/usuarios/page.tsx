@@ -111,7 +111,9 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
                         >
                           {initials(user.nombre)}
                         </span>
-                        <span className="font-semibold">{user.nombre}</span>
+                        <Link href={`/admin/usuarios/${user.id}`} className="font-semibold hover:underline">
+                          {user.nombre}
+                        </Link>
                       </div>
                     </TableCell>
                     <TableCell className="tabular-nums">{formatCedula(user.cedula)}</TableCell>
