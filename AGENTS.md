@@ -66,6 +66,10 @@ reconocimiento facial falla.
   `configuracion_smtp`, no variables de entorno). La contraseña se guarda cifrada (AES-256-GCM,
   clave derivada de `AUTH_SECRET`, ver `src/lib/server/secretBox.ts`): si `AUTH_SECRET` cambia,
   hay que volver a escribirla. Los errores de nodemailer se traducen con `describeMailError`.
+  El envío masivo de carnets lo procesa un trabajador en segundo plano que arranca
+  `src/instrumentation.ts` (un bucle por proceso, un paso cada 5 s; ver
+  `src/lib/server/envioCarnetsWorker.ts`). Variable `MAIL_TRANSPORT=json`: solo fuera de
+  producción, arma el correo sin enviarlo a ningún SMTP; la usan los e2e (`playwright.config.ts`).
 - **Carnet virtual:** QR generado con `qrcode` en el servidor y leído en el kiosko con `jsqr`
   sobre los cuadros de la misma webcam (sin lector USB).
 - **Despliegue:** reverse proxy con HTTPS interno (certificado propio vía CA local, ej. `mkcert`)
@@ -177,7 +181,15 @@ src/
   tiempo mínimo antes de la salida, exigencia del reconocimiento, intentos antes del respaldo y
   jornada máxima por día. Sin fila se usan los valores por defecto de `src/lib/configRules.ts`.
   Tolerancia de llegada y tiempo mínimo antes de la salida tienen además una versión para
-  voluntarios naturales (`reglasPara` en `src/lib/configRules.ts`).
+  voluntarios naturales (`reglasPara` en `src/lib/configRules.ts`). Incluye también
+  `carnets_por_hora` (por defecto 100, entre 1 y 10.000): ritmo y tope del envío masivo de carnets.
+- `envio_carnets`: id, iniciado_por_id (FK admin), estado (`en-curso` | `pausado` | `terminado`),
+  motivo_pausa, total, creado_en, terminado_en. Solo uno `en-curso` o `pausado` a la vez.
+- `envio_carnet_item`: id, envio_id (FK), user_id (FK), estado (`pendiente` | `enviando` |
+  `enviado` | `omitido` | `error`), motivo_error, intentado_en. Es la instantánea de los pendientes
+  al iniciar (activos, con correo y sin carnet enviado). Un error global de correo (servidor,
+  credenciales, red) pausa el envío entero; un error del destinatario solo marca ese item. Un item
+  `enviando` por más de 10 min al arrancar pasa a `error` («No sabemos si el correo llegó»).
 
 Universidad / técnica / colegio no es un tipo de usuario: lo dice la institución (maqueta 4f,
 `src/lib/catalogo/`). La interfaz dice siempre **Institución** y **Sede**; «Entidad» solo sobrevive
@@ -280,6 +292,11 @@ Escala por contexto:
 
 ### Patrones de UI establecidos
 
+- **Avisos (`notificar`, `src/lib/client/avisos.ts`):** toda acción de administración que guarda o
+  cambia algo avisa con un toast abajo a la derecha. Éxito verde, 4 s; error rojo con texto, 8 s y
+  botón de cerrar. Si el error es de campos: «Revisa los campos marcados» y el detalle queda en cada
+  campo. Sin mensaje: «No pudimos completar la acción. Inténtalo de nuevo.». No se usan en el
+  kiosko ni en el login (ahí el feedback es la pantalla) ni para datos que ya se ven en pantalla.
 - **Botones:** primario = fondo `red`, texto blanco · exportar = fondo `green` · secundario =
   borde `1.5px rgba(19,30,61,.25)`, texto navy, fondo blanco · deshabilitado = fondo
   `rgba(19,30,61,.15)`, texto `rgba(19,30,61,.45)`.
@@ -358,8 +375,12 @@ Escala por contexto:
 - [x] Brandear la app con el tema de shadcn/ui (tokens cableados en `globals.css`)
 - [x] QR del carnet como respaldo en el kiosko (maqueta 1e): carnet virtual por correo, leído
       con la webcam del kiosko
-- [ ] Envío masivo de carnets virtuales (hoy uno por uno desde Editar usuario); con ~2.700
-      practicantes hay que respetar el límite de envíos por hora del proveedor SMTP
+- [x] Envío masivo de carnets virtuales (Usuarios › Enviar carnets pendientes), con ritmo
+      configurable (`carnets_por_hora`), pausa y reanudación
+- [ ] Confirmar con IT el límite de envíos por hora del proveedor SMTP y ajustar `carnets_por_hora`
+      (con ~2.700 practicantes, 100 por hora son unas 27 horas)
+- [ ] La app debe correr como un único proceso `next start`: el trabajador del envío de carnets vive
+      dentro y dos procesos competirían por el mismo lote
 - [ ] Confirmar con IT qué servidor SMTP usar y que la red interna permite la salida a él
       (puertos 587/465) — sin eso no salen los carnets
 - [ ] Identificador por kiosko (`deviceId` hoy fijo en `kiosko-1`), ligado a Instituciones y sedes (4f)
