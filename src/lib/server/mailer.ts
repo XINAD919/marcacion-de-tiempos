@@ -104,6 +104,22 @@ async function savedTransportInput(): Promise<TransportInput> {
   };
 }
 
+async function remitenteDePrueba(): Promise<TransportInput> {
+  try {
+    return await savedTransportInput();
+  } catch {
+    return {
+      host: "localhost",
+      puerto: 25,
+      seguridad: "ninguna",
+      usuario: "",
+      remitenteNombre: "Pruebas",
+      remitenteEmail: "pruebas@example.com",
+      password: null,
+    };
+  }
+}
+
 export interface MailMessage {
   to: string;
   subject: string;
@@ -112,8 +128,16 @@ export interface MailMessage {
   attachments?: Attachment[];
 }
 
+/**
+ * Solo para pruebas: `MAIL_TRANSPORT=json` arma el correo pero no lo envía.
+ * Nunca en producción, aunque la variable quede puesta.
+ */
+function usaTransporteJson(): boolean {
+  return process.env.MAIL_TRANSPORT === "json" && process.env.NODE_ENV !== "production";
+}
+
 async function send(input: TransportInput, message: MailMessage) {
-  const transport = createTransport(input);
+  const transport = usaTransporteJson() ? nodemailer.createTransport({ jsonTransport: true }) : createTransport(input);
   try {
     await transport.sendMail({
       from: { name: input.remitenteNombre, address: input.remitenteEmail },
@@ -126,7 +150,9 @@ async function send(input: TransportInput, message: MailMessage) {
 
 /** Envía con la configuración guardada en Configuración. */
 export async function sendMail(message: MailMessage): Promise<void> {
-  await send(await savedTransportInput(), message);
+  // Con el transporte de prueba basta el remitente guardado, o uno de reserva.
+  const input = usaTransporteJson() ? await remitenteDePrueba() : await savedTransportInput();
+  await send(input, message);
 }
 
 /** Correo de prueba con la configuración guardada, para confirmar que funciona. */

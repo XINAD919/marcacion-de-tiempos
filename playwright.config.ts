@@ -3,6 +3,8 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30000,
+  // Las pruebas comparten la base de datos y la fila de configuración: una a la vez.
+  workers: 1,
   use: {
     baseURL: "https://localhost:3000",
     ignoreHTTPSErrors: true,
@@ -28,6 +30,7 @@ export default defineConfig({
     // TRUST_STORES=nss tells mkcert to only install into the current
     // user's NSS database (no root needed), which is what Chromium reads
     // on Linux anyway.
-    env: { TRUST_STORES: "nss" },
+    // MAIL_TRANSPORT=json: el envío de carnets arma el correo pero no sale a ningún SMTP.
+    env: { TRUST_STORES: "nss", MAIL_TRANSPORT: "json" },
   },
 });

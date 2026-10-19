@@ -279,3 +279,9 @@ export async function recuperarAlArrancar(now: Date = new Date()): Promise<numbe
   });
   return count;
 }
+
+/** El envío más reciente (en curso, pausado o terminado), para mostrar su resultado. */
+export async function ultimoEnvioId(): Promise<string | null> {
+  const envio = await prisma.envioCarnets.findFirst({ orderBy: { creadoEn: "desc" }, select: { id: true } });
+  return envio?.id ?? null;
+}
