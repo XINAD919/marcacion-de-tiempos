@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONFIG } from "@/lib/configRules";
 import { registrarMarcacion, type UsuarioMarcacion } from "./marcacionService";
 import { prisma } from "./prisma";
@@ -44,17 +44,23 @@ describe("registrarMarcacion con marcaciones anuladas", () => {
   });
 
   it("no suma horas de una salida anulada en el acumulado del kiosko", async () => {
-    const now = Date.now();
-    // IN válida hace 3 h, OUT anulada hace 1 h.
-    await prisma.attendanceLog.create({
-      data: { userId, tipo: "IN", metodo: "face", deviceId: "t", marcadoEn: new Date(now - 3 * HOUR) },
-    });
-    await prisma.attendanceLog.create({
-      data: { userId, tipo: "OUT", metodo: "face", deviceId: "t", marcadoEn: new Date(now - 1 * HOUR), anuladaEn: new Date(), motivoAnulacion: "prueba" },
-    });
-    const result = await registrarMarcacion(user, DEFAULT_CONFIG, { metodo: "qr", confianza: null, deviceId: "t" });
-    expect(result).toMatchObject({ matched: true, tipo: "OUT" });
-    const acumulado = (result as { acumuladoMs: number }).acumuladoMs;
-    expect(Math.abs(acumulado - 3 * HOUR)).toBeLessThan(60 * 1000);
+    // Reloj fijo a las 15:00 de hoy: las horas de la prueba son válidas a cualquier hora real.
+    const hoy = (h: number) => new Date(new Date().setHours(h, 0, 0, 0));
+    const ahora = hoy(15);
+    vi.useFakeTimers({ toFake: ["Date"], now: ahora });
+    try {
+      // IN válida a las 12:00, OUT anulada a las 14:00.
+      await prisma.attendanceLog.create({
+        data: { userId, tipo: "IN", metodo: "face", deviceId: "t", marcadoEn: hoy(12) },
+      });
+      await prisma.attendanceLog.create({
+        data: { userId, tipo: "OUT", metodo: "face", deviceId: "t", marcadoEn: hoy(14), anuladaEn: ahora, motivoAnulacion: "prueba" },
+      });
+      const result = await registrarMarcacion(user, DEFAULT_CONFIG, { metodo: "qr", confianza: null, deviceId: "t" });
+      expect(result).toMatchObject({ matched: true, tipo: "OUT" });
+      expect((result as { acumuladoMs: number }).acumuladoMs).toBe(3 * HOUR);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

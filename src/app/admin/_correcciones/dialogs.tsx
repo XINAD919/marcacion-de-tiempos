@@ -45,6 +45,7 @@ function CorreccionDialog({
   children,
   campos,
   canSubmit = true,
+  onClose,
 }: TriggerProps & {
   title: string;
   description: React.ReactNode;
@@ -55,9 +56,14 @@ function CorreccionDialog({
   campos?: (errors: Partial<Record<string, string>>) => React.ReactNode;
   children?: React.ReactNode;
   canSubmit?: boolean;
+  /** Se llama al cerrar (con éxito o sin él) para devolver el estado propio del diálogo a cero. */
+  onClose?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { onSubmit, pending, errors, message, reset } = useCatalogoForm(action, () => setOpen(false));
+  const { onSubmit, pending, errors, message, reset } = useCatalogoForm(action, () => {
+    setOpen(false);
+    onClose?.();
+  });
   const motivoId = useId();
 
   return (
@@ -65,7 +71,10 @@ function CorreccionDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) reset();
+        if (!next) {
+          reset();
+          onClose?.();
+        }
       }}
     >
       <DialogTrigger render={triggerRender(triggerStyle)}>{trigger}</DialogTrigger>
@@ -225,6 +234,7 @@ export function AnularDialog({
       description={`${descripcion}. No se borra: queda en el historial como anulada y deja de sumar horas.`}
       submitLabel="Anular marcación"
       action={anularAction}
+      onClose={() => setIncluir(true)}
       hidden={{ marcaId, incluirPareja: String(Boolean(pareja) && incluir) }}
     >
       {pareja && (
@@ -298,6 +308,11 @@ export function ReasignarDialog({
       description={`${descripcion}. Pasa a otro practicante con la misma hora; la original queda anulada en el historial.`}
       submitLabel="Reasignar marcación"
       action={reasignarAction}
+      onClose={() => {
+        setQ("");
+        setResultados([]);
+        setElegido(null);
+      }}
       hidden={{ marcaId, destinoUserId: elegido?.id ?? "" }}
       campos={(errors) => (
         <DialogField
