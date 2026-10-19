@@ -134,10 +134,10 @@ describe("listPendientes", () => {
     expect(p2.rows).toHaveLength(1);
   });
 
-  it("agrupa por día local: 19:30 y 21:00 de ayer son un par, aunque crucen medianoche UTC", async () => {
+  it("agrupa por día local: 18:00 y 20:00 de ayer son un par, aunque crucen medianoche UTC", async () => {
     const now = dia(0, 15);
-    await marca(userId, "IN", dia(1, 19, 30));
-    await marca(userId, "OUT", dia(1, 21));
+    await marca(userId, "IN", dia(1, 18));
+    await marca(userId, "OUT", dia(1, 20));
     const { rows, total } = await listPendientes({ sede: sedeA }, { limit: 50, offset: 0 }, now);
     expect(total).toBe(0);
     expect(rows).toEqual([]);
