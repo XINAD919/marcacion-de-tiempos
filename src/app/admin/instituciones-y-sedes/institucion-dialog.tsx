@@ -26,7 +26,7 @@ export function InstitucionDialog({
   triggerStyle: TriggerStyle;
 }) {
   const [open, setOpen] = useState(false);
-  const { onSubmit, pending, errors, message, reset } = useCatalogoForm(guardarInstitucionAction, () => setOpen(false));
+  const { onSubmit, pending, errors, reset } = useCatalogoForm(guardarInstitucionAction, () => setOpen(false), "Institución guardada");
 
   return (
     <Dialog
@@ -84,11 +84,6 @@ export function InstitucionDialog({
             />
           </DialogField>
           {institucion && <EstadoField activa={institucion.activa} />}
-          {message && (
-            <p role="alert" className="text-sm font-semibold text-brand-red-ink">
-              {message}
-            </p>
-          )}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
               {pending ? "Guardando…" : "Guardar"}

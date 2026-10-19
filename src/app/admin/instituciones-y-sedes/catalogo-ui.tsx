@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { SegmentedControl } from "@/components/admin/segmented-control";
 import { Button } from "@/components/ui/button";
+import { notificar } from "@/lib/client/avisos";
 import type { CatalogoActionResult } from "./actions";
 
 export type TriggerStyle = "primario" | "secundario" | "enlace";
@@ -72,10 +73,12 @@ export function EstadoField({ activa }: { activa: boolean }) {
 /**
  * Envía el formulario del modal a la server action sin que React lo reinicie
  * (por eso `onSubmit` y no `action`): si hay errores, lo escrito se queda.
+ * El resultado se avisa con un toast: `exito` es el texto cuando se guarda.
  */
 export function useCatalogoForm(
   action: (formData: FormData) => Promise<CatalogoActionResult>,
-  onSaved: () => void
+  onSaved: () => void,
+  exito: string
 ) {
   const [result, setResult] = useState<CatalogoActionResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -86,11 +89,11 @@ export function useCatalogoForm(
     startTransition(async () => {
       const next = await action(formData);
       setResult(next.ok ? null : next);
+      notificar(next, exito);
       if (next.ok) onSaved();
     });
   }
 
   const errors = result && !result.ok ? (result.errors ?? {}) : {};
-  const message = result && !result.ok ? result.message : undefined;
-  return { onSubmit, pending, errors, message, reset: () => setResult(null) };
+  return { onSubmit, pending, errors, reset: () => setResult(null) };
 }

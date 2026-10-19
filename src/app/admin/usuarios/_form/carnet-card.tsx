@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { notificar } from "@/lib/client/avisos";
 import { enviarCarnet } from "./carnet-actions";
 
 export interface CarnetInfo {
@@ -30,26 +31,21 @@ export function CarnetCard({
   carnet: CarnetInfo;
 }) {
   const [info, setInfo] = useState(carnet);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [confirmRenew, setConfirmRenew] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const canSend = Boolean(email) && activo;
 
   function send(renovar: boolean) {
-    setMessage(null);
     setConfirmRenew(false);
     startTransition(async () => {
       const result = await enviarCarnet(userId, renovar);
       if (!result.ok) {
-        setMessage({ tone: "error", text: result.message });
+        notificar(result, "");
         return;
       }
       setInfo({ enviadoEn: result.enviadoEn, enviadoA: result.to });
-      setMessage({
-        tone: "ok",
-        text: renovar ? `Carnet nuevo enviado a ${result.to}. El anterior ya no sirve.` : `Carnet enviado a ${result.to}.`,
-      });
+      notificar({ ok: true }, `Carnet enviado a ${result.to}`);
     });
   }
 
@@ -106,18 +102,6 @@ export function CarnetCard({
         </div>
       )}
 
-      {message && (
-        <p
-          role={message.tone === "error" ? "alert" : "status"}
-          className={
-            message.tone === "error"
-              ? "text-[13px] font-semibold text-brand-red-ink"
-              : "text-[13px] font-semibold text-brand-green-ink"
-          }
-        >
-          {message.text}
-        </p>
-      )}
     </div>
   );
 }

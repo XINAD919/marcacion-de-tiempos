@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { notificar } from "@/lib/client/avisos";
 import { captureVideoFrame } from "@/lib/client/captureFrame";
 import { cn } from "@/lib/utils";
 
@@ -146,11 +147,12 @@ export function Enrolamiento({ userId, nombre, detalle, fotosPrevias }: Enrolami
     setBusy("guardando");
     setError(null);
     if (await jsonRequest(endpoint, "PUT", { conservar: sessionIds })) {
+      notificar({ ok: true }, "Rostro guardado");
       router.push("/admin/usuarios");
       router.refresh();
     } else {
       setBusy(null);
-      setError("No se pudo guardar el rostro. Inténtalo de nuevo.");
+      notificar({ ok: false }, "");
     }
   }
 

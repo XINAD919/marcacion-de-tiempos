@@ -16,20 +16,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import type { AdminDTO } from "@/lib/server/adminService";
+import { notificar, type ResultadoAccion } from "@/lib/client/avisos";
 import { initials } from "@/lib/initials";
 
-async function send(url: string, method: "POST" | "PATCH", body: unknown): Promise<string | null> {
+async function send(url: string, method: "POST" | "PATCH", body: unknown): Promise<ResultadoAccion> {
   try {
     const response = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (response.ok) return null;
+    if (response.ok) return { ok: true };
     const data = await response.json().catch(() => null);
-    return data?.error ?? "No se pudo guardar. Inténtalo de nuevo.";
+    return { ok: false, message: data?.error };
   } catch {
-    return "No se pudo conectar con el servidor.";
+    return { ok: false };
   }
 }
 
@@ -44,24 +45,19 @@ export function AdminsPanel({
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminDTO | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function run(request: Promise<string | null>, onSuccess: () => void) {
+  async function run(request: Promise<ResultadoAccion>, onSuccess: () => void) {
     setPending(true);
-    setError(null);
-    const failure = await request;
+    const result = await request;
     setPending(false);
-    if (failure) {
-      setError(failure);
-      return;
-    }
+    notificar(result, "Administrador guardado");
+    if (!result.ok) return;
     onSuccess();
     router.refresh();
   }
 
   function openDialog(target: "create" | AdminDTO) {
-    setError(null);
     if (target === "create") setCreating(true);
     else setEditing(target);
   }
@@ -145,11 +141,6 @@ export function AdminsPanel({
               <Label htmlFor="admin-password">Contraseña inicial</Label>
               <PasswordInput id="admin-password" name="password" required minLength={8} />
             </div>
-            {error && (
-              <p role="alert" className="text-sm font-semibold text-brand-red-ink">
-                {error}
-              </p>
-            )}
             <DialogFooter>
               <Button type="submit" disabled={pending}>
                 {pending ? "Guardando…" : "Agregar"}
@@ -185,11 +176,6 @@ export function AdminsPanel({
             </Button>
           </form>
 
-          {error && (
-            <p role="alert" className="text-sm font-semibold text-brand-red-ink">
-              {error}
-            </p>
-          )}
 
           <DialogFooter className="border-t border-border pt-4 sm:justify-between">
             <p className="self-center text-[13px] text-muted-foreground">

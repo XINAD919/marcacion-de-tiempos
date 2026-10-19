@@ -18,7 +18,7 @@ import { DialogField, EstadoField, type TriggerStyle, triggerRender, useCatalogo
 
 export function SedeDialog({ sede, triggerStyle }: { sede?: SedeOpcion; triggerStyle: TriggerStyle }) {
   const [open, setOpen] = useState(false);
-  const { onSubmit, pending, errors, message, reset } = useCatalogoForm(guardarSedeAction, () => setOpen(false));
+  const { onSubmit, pending, errors, reset } = useCatalogoForm(guardarSedeAction, () => setOpen(false), "Sede guardada");
   const invalid = (field: string, id: string) =>
     errors[field] ? { "aria-invalid": true, "aria-describedby": `${id}-error` } : {};
 
@@ -94,11 +94,6 @@ export function SedeDialog({ sede, triggerStyle }: { sede?: SedeOpcion; triggerS
             </div>
           </DialogField>
           {sede && <EstadoField activa={sede.activa} />}
-          {message && (
-            <p role="alert" className="text-sm font-semibold text-brand-red-ink">
-              {message}
-            </p>
-          )}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
               {pending ? "Guardando…" : "Guardar"}
