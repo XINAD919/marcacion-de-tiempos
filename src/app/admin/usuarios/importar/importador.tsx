@@ -50,6 +50,8 @@ export function Importador() {
         // Sin columnas obligatorias no se importó nada: no es un éxito.
         if (body.columnasFaltantes.length === 0) {
           notificar({ ok: true }, `Importación terminada: ${fmt(body.insertados)} insertados`);
+        } else {
+          notificar({ ok: false, message: "No se importó nada: al archivo le faltan columnas obligatorias." }, "");
         }
         router.refresh();
       }

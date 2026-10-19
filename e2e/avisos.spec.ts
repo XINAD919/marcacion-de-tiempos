@@ -3,12 +3,17 @@ import { expect, test } from "@playwright/test";
 
 process.loadEnvFile(".env");
 
-const SEDE = `Sede avisos ${Date.now()}`;
+const SUFIJO = `avisos ${Date.now()}`;
+const SEDE = `Sede ${SUFIJO}`;
+const INSTITUCION = `Universidad ${SUFIJO}`;
+const CEDULA = `9800${String(Date.now()).slice(-6)}`;
 
 test.use({ viewport: { width: 1366, height: 768 } });
 
 test.afterAll(async () => {
   const prisma = new PrismaClient();
+  await prisma.user.deleteMany({ where: { cedula: CEDULA } });
+  await prisma.institucion.deleteMany({ where: { nombre: INSTITUCION } });
   await prisma.sede.deleteMany({ where: { nombre: SEDE } });
   await prisma.$disconnect();
 });
@@ -35,4 +40,42 @@ test("los avisos confirman el éxito y señalan los campos con error", async ({ 
   await page.getByLabel("Hora de cierre").fill("17:00");
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByText("Revisa los campos marcados", { exact: true })).toBeVisible();
+
+  // Usuario nuevo: aviso y redirección (la acción ya no redirige en el servidor).
+  const prisma = new PrismaClient();
+  await prisma.institucion.create({ data: { nombre: INSTITUCION, tipo: "universidad", horasExigidas: 240 } });
+  await prisma.$disconnect();
+  await page.goto("/admin/usuarios/nuevo");
+  await page.locator("#nombre").fill(`Practicante ${SUFIJO}`);
+  await page.locator("#cedula").fill(CEDULA);
+  await page.locator("#institucionId").fill(SUFIJO);
+  await page.getByRole("option", { name: INSTITUCION }).click();
+  await page.locator("#sedeId").selectOption({ label: SEDE });
+  await page.locator("#fechaInicio").fill("2026-08-01");
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(page.getByText("Usuario guardado", { exact: true })).toBeVisible();
+  await page.waitForURL(/\/admin\/usuarios$/);
+
+  // Enrolamiento carga (sin cámara en el navegador de prueba, la página igual abre).
+  const lectura = new PrismaClient();
+  const usuario = await lectura.user.findFirstOrThrow({ where: { cedula: CEDULA } });
+  await lectura.$disconnect();
+  await page.goto(`/admin/enrolar/${usuario.id}`);
+  await expect(page.getByRole("heading", { name: /Enrolamiento facial/ })).toBeVisible();
+
+  // Importar carga.
+  await page.goto("/admin/usuarios/importar");
+  await expect(page.getByRole("heading", { name: "Sube el Excel de practicantes" })).toBeVisible();
+
+  // Configuración: guardar muestra el aviso; se restaura el valor original.
+  await page.goto("/admin/configuracion");
+  const tolerancia = page.locator("#toleranciaLlegadaMin");
+  await expect(tolerancia).toBeVisible();
+  const original = await tolerancia.inputValue();
+  await tolerancia.fill(String(Number(original) + 1));
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(page.getByText("Configuración guardada", { exact: true })).toBeVisible();
+  await tolerancia.fill(original);
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(page.getByText("Configuración guardada", { exact: true })).toHaveCount(2);
 });

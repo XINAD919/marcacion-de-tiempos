@@ -45,7 +45,10 @@ export function CarnetCard({
         return;
       }
       setInfo({ enviadoEn: result.enviadoEn, enviadoA: result.to });
-      notificar({ ok: true }, `Carnet enviado a ${result.to}`);
+      notificar(
+        { ok: true },
+        renovar ? `Carnet nuevo enviado a ${result.to}. El anterior ya no sirve.` : `Carnet enviado a ${result.to}`
+      );
     });
   }
 

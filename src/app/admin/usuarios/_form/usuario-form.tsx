@@ -486,10 +486,10 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, instituciones, se
         <Link href="/admin/usuarios" className={buttonVariants({ variant: "outline" })}>
           Cancelar
         </Link>
-        <Button type="submit" name="intent" value="guardar" variant="outline" disabled={pending}>
+        <Button type="submit" name="intent" value="guardar" variant="outline" disabled={pending || state.status === "saved"}>
           Guardar
         </Button>
-        <Button type="submit" name="intent" value="enrolar" disabled={pending}>
+        <Button type="submit" name="intent" value="enrolar" disabled={pending || state.status === "saved"}>
           {pending ? "Guardando…" : "Guardar y enrolar rostro"}
         </Button>
       </footer>
