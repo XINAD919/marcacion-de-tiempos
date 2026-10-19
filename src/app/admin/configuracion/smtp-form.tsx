@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { SegmentedControl } from "@/components/admin/segmented-control";
 import { SettingRow, SettingsCard } from "@/components/admin/setting-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
+import { notificar } from "@/lib/client/avisos";
 import type { SmtpSettings } from "@/lib/server/mailer";
 import { PUERTO_SUGERIDO, SEGURIDADES, SEGURIDAD_LABEL, type SmtpField, isSeguridad } from "@/lib/smtpRules";
 import { type SmtpFormState, guardarSmtp } from "./actions";
@@ -26,6 +27,12 @@ export function SmtpForm({ smtp }: { smtp: SmtpSettings | null }) {
     return next;
   }, { status: "idle" });
   const puertoRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (state.status === "saved") notificar({ ok: true }, "Correo de salida guardado");
+    else if (state.status === "invalid") notificar({ ok: false, errors: state.errors }, "");
+    else if (state.status === "error") notificar({ ok: false, message: state.message }, "");
+  }, [state]);
 
   const errors = state.status === "invalid" ? state.errors : {};
   const typed = "values" in state ? state.values : {};
@@ -158,11 +165,6 @@ export function SmtpForm({ smtp }: { smtp: SmtpSettings | null }) {
         </SettingRow>
 
         <div className="flex items-center justify-end gap-2.5 border-t border-navy/8 py-4">
-          <p role="status" className="mr-auto text-[13.5px] font-semibold">
-            {!pending && state.status === "saved" && <span className="text-brand-green-ink">Correo de salida guardado</span>}
-            {state.status === "invalid" && <span className="text-brand-red-ink">Corrige los campos marcados</span>}
-            {state.status === "error" && <span className="text-brand-red-ink">{state.message}</span>}
-          </p>
           <Button type="submit" disabled={pending}>
             {pending ? "Guardando…" : "Guardar correo"}
           </Button>

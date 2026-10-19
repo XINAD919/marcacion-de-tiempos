@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Toaster } from "@/components/ui/sonner";
 import { Sidebar } from "@/components/admin/sidebar";
 import { auth, signOut } from "@/lib/server/auth";
 
@@ -21,6 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         logoutAction={logout}
       />
       <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+      <Toaster position="bottom-right" />
     </div>
   );
 }

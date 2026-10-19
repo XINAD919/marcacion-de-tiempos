@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { PageHeader } from "@/components/admin/page-header";
 import { SegmentedControl } from "@/components/admin/segmented-control";
 import { SettingRow, SettingsCard } from "@/components/admin/setting-row";
 import { UnitInput } from "@/components/admin/unit-input";
 import { Button } from "@/components/ui/button";
+import { notificar } from "@/lib/client/avisos";
 import { type ConfigField, type ConfigValues, EXIGENCIAS, EXIGENCIA_LABEL } from "@/lib/configRules";
 import { type ConfigFormState, guardarConfiguracion } from "./actions";
 
@@ -28,6 +29,12 @@ export function ConfigForm({ config, aside, children }: ConfigFormProps) {
     status: "idle",
   });
 
+  useEffect(() => {
+    if (state.status === "saved") notificar({ ok: true }, "Configuración guardada");
+    else if (state.status === "invalid") notificar({ ok: false, errors: state.errors }, "");
+    else if (state.status === "error") notificar({ ok: false, message: state.message }, "");
+  }, [state]);
+
   const errors = state.status === "invalid" ? state.errors : {};
   const typed = state.status === "invalid" ? state.values : {};
   const value = (field: ConfigField, saved: string) => typed[field] ?? saved;
@@ -42,20 +49,9 @@ export function ConfigForm({ config, aside, children }: ConfigFormProps) {
         title="Configuración"
         description="Reglas que aplican a todas las sedes y kioskos"
         actions={
-          <div className="flex items-center gap-4">
-            <p role="status" className="text-sm font-semibold">
-              {state.status === "saved" && !pending && (
-                <span className="text-brand-green-ink">Cambios guardados</span>
-              )}
-              {state.status === "invalid" && (
-                <span className="text-brand-red-ink">Corrige los campos marcados para guardar</span>
-              )}
-              {state.status === "error" && <span className="text-brand-red-ink">{state.message}</span>}
-            </p>
-            <Button type="submit" form={FORM_ID} disabled={pending}>
-              {pending ? "Guardando…" : "Guardar cambios"}
-            </Button>
-          </div>
+          <Button type="submit" form={FORM_ID} disabled={pending}>
+            {pending ? "Guardando…" : "Guardar cambios"}
+          </Button>
         }
       />
 
@@ -176,6 +172,25 @@ export function ConfigForm({ config, aside, children }: ConfigFormProps) {
                   defaultValue={value("jornadaMaximaHoras", String(config.jornadaMaximaHoras))}
                   aria-invalid={Boolean(errors.jornadaMaximaHoras) || undefined}
                   aria-describedby={describedBy("jornadaMaximaHoras")}
+                />
+              </SettingRow>
+            </SettingsCard>
+
+            <SettingsCard title="Carnets virtuales">
+              <SettingRow
+                htmlFor="carnetsPorHora"
+                title="Carnets por hora"
+                description="Cuántos carnets virtuales se envían como máximo por hora. Ajústalo al límite de tu proveedor de correo."
+                error={errors.carnetsPorHora}
+              >
+                <UnitInput
+                  id="carnetsPorHora"
+                  name="carnetsPorHora"
+                  unit="por hora"
+                  inputMode="numeric"
+                  defaultValue={value("carnetsPorHora", String(config.carnetsPorHora))}
+                  aria-invalid={Boolean(errors.carnetsPorHora) || undefined}
+                  aria-describedby={describedBy("carnetsPorHora")}
                 />
               </SettingRow>
             </SettingsCard>

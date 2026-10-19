@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PageHeader } from "@/components/admin/page-header";
+import { notificar } from "@/lib/client/avisos";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ImportIssue } from "@/lib/usuarios/importRows";
@@ -35,23 +36,27 @@ function downloadBase64Xlsx(base64: string, filename: string) {
 export function Importador() {
   const router = useRouter();
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function importar(formData: FormData) {
     setPending(true);
-    setError(null);
     try {
       const response = await fetch("/api/usuarios/importar", { method: "POST", body: formData });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        setError(body?.error ?? "No se pudo importar el archivo. Inténtalo de nuevo.");
+        notificar({ ok: false, message: body?.error }, "");
       } else {
         setResult(body);
+        // Sin columnas obligatorias no se importó nada: no es un éxito.
+        if (body.columnasFaltantes.length === 0) {
+          notificar({ ok: true }, `Importación terminada: ${fmt(body.insertados)} insertados`);
+        } else {
+          notificar({ ok: false, message: "No se importó nada: al archivo le faltan columnas obligatorias." }, "");
+        }
         router.refresh();
       }
     } catch {
-      setError("No se pudo conectar con el servidor.");
+      notificar({ ok: false }, "");
     } finally {
       setPending(false);
     }
@@ -118,11 +123,6 @@ export function Importador() {
                 />
               </label>
 
-              {error && (
-                <p role="alert" className="text-sm font-semibold text-brand-red-ink">
-                  {error}
-                </p>
-              )}
 
               <div className="flex justify-end gap-2.5">
                 <Link href="/admin/usuarios" className={buttonVariants({ variant: "outline" })}>

@@ -33,6 +33,7 @@ export interface ConfigValues {
   exigenciaReconocimiento: Exigencia;
   intentosAntesQr: number;
   jornadaMaximaHoras: number;
+  carnetsPorHora: number;
 }
 
 export const DEFAULT_CONFIG: ConfigValues = {
@@ -43,6 +44,7 @@ export const DEFAULT_CONFIG: ConfigValues = {
   exigenciaReconocimiento: "equilibrado",
   intentosAntesQr: 3,
   jornadaMaximaHoras: 9,
+  carnetsPorHora: 100,
 };
 
 export type ConfigField =
@@ -52,7 +54,8 @@ export type ConfigField =
   | "minHorasAntesSalidaNatural"
   | "exigenciaReconocimiento"
   | "intentosAntesQr"
-  | "jornadaMaximaHoras";
+  | "jornadaMaximaHoras"
+  | "carnetsPorHora";
 
 export type ConfigParseResult =
   | { ok: true; value: ConfigValues }
@@ -109,6 +112,9 @@ export function parseConfigForm(input: Partial<Record<ConfigField, unknown>>): C
   const jornada = intInRange(input.jornadaMaximaHoras, 1, 24);
   if (jornada === null) errors.jornadaMaximaHoras = "Escribe un número de horas entre 1 y 24.";
 
+  const carnetsPorHora = intInRange(input.carnetsPorHora, 1, 10000);
+  if (carnetsPorHora === null) errors.carnetsPorHora = "Escribe un número de carnets entre 1 y 10.000.";
+
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
   return {
@@ -121,6 +127,7 @@ export function parseConfigForm(input: Partial<Record<ConfigField, unknown>>): C
       exigenciaReconocimiento: exigencia as Exigencia,
       intentosAntesQr: intentos!,
       jornadaMaximaHoras: jornada!,
+      carnetsPorHora: carnetsPorHora!,
     },
   };
 }

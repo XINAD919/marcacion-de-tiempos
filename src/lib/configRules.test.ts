@@ -9,6 +9,7 @@ const valid = {
   exigenciaReconocimiento: "estricto",
   intentosAntesQr: "5",
   jornadaMaximaHoras: "9",
+  carnetsPorHora: "250",
 };
 
 describe("parseConfigForm", () => {
@@ -23,6 +24,7 @@ describe("parseConfigForm", () => {
         exigenciaReconocimiento: "estricto",
         intentosAntesQr: 5,
         jornadaMaximaHoras: 9,
+        carnetsPorHora: 250,
       },
     });
   });
@@ -40,6 +42,7 @@ describe("parseConfigForm", () => {
       exigenciaReconocimiento: "máximo",
       intentosAntesQr: "0",
       jornadaMaximaHoras: "30",
+      carnetsPorHora: "0",
     });
     expect(result).toEqual({
       ok: false,
@@ -49,8 +52,14 @@ describe("parseConfigForm", () => {
         exigenciaReconocimiento: "Elige Flexible, Equilibrado o Estricto.",
         intentosAntesQr: "Elige entre 1 y 10 intentos.",
         jornadaMaximaHoras: "Escribe un número de horas entre 1 y 24.",
+        carnetsPorHora: "Escribe un número de carnets entre 1 y 10.000.",
       },
     });
+  });
+
+  it.each(["0", "abc", "10001", "2.5", ""])("rechaza %j como carnets por hora", (raw) => {
+    const result = parseConfigForm({ ...valid, carnetsPorHora: raw });
+    expect(result.ok).toBe(false);
   });
 
   it("no acepta minutos con decimales en la tolerancia", () => {

@@ -104,6 +104,22 @@ async function savedTransportInput(): Promise<TransportInput> {
   };
 }
 
+async function remitenteDePrueba(): Promise<TransportInput> {
+  try {
+    return await savedTransportInput();
+  } catch {
+    return {
+      host: "localhost",
+      puerto: 25,
+      seguridad: "ninguna",
+      usuario: "",
+      remitenteNombre: "Pruebas",
+      remitenteEmail: "pruebas@example.com",
+      password: null,
+    };
+  }
+}
+
 export interface MailMessage {
   to: string;
   subject: string;
@@ -112,8 +128,16 @@ export interface MailMessage {
   attachments?: Attachment[];
 }
 
+/**
+ * Solo para pruebas: `MAIL_TRANSPORT=json` arma el correo pero no lo envía.
+ * Nunca en producción, aunque la variable quede puesta.
+ */
+export function usaTransporteJson(): boolean {
+  return process.env.MAIL_TRANSPORT === "json" && process.env.NODE_ENV !== "production";
+}
+
 async function send(input: TransportInput, message: MailMessage) {
-  const transport = createTransport(input);
+  const transport = usaTransporteJson() ? nodemailer.createTransport({ jsonTransport: true }) : createTransport(input);
   try {
     await transport.sendMail({
       from: { name: input.remitenteNombre, address: input.remitenteEmail },
@@ -126,7 +150,9 @@ async function send(input: TransportInput, message: MailMessage) {
 
 /** Envía con la configuración guardada en Configuración. */
 export async function sendMail(message: MailMessage): Promise<void> {
-  await send(await savedTransportInput(), message);
+  // Con el transporte de prueba basta el remitente guardado, o uno de reserva.
+  const input = usaTransporteJson() ? await remitenteDePrueba() : await savedTransportInput();
+  await send(input, message);
 }
 
 /** Correo de prueba con la configuración guardada, para confirmar que funciona. */
@@ -137,6 +163,46 @@ export async function sendTestMail(to: string): Promise<void> {
     text: "Si recibes este mensaje, el correo de salida del control de tiempos quedó bien configurado.",
     html: "<p>Si recibes este mensaje, el correo de salida del control de tiempos quedó bien configurado.</p>",
   });
+}
+
+const CODIGOS_GLOBALES = new Set(["EAUTH", "ECONNECTION", "ETIMEDOUT", "ESOCKET", "EDNS", "ETLS"]);
+
+const RESPONSE_CODES_GLOBALES = new Set([421, 450, 451, 452, 454]);
+// Cuota o límite del proveedor (4.7.x, 5.4.5, 5.7.x): seguir enviando solo acumularía rechazos.
+const ESTADO_MEJORADO_GLOBAL = /\b(4\.7\.\d+|5\.4\.5|5\.7\.\d+)\b/;
+
+type ErrorLike = { code?: unknown; responseCode?: unknown; name?: unknown; response?: unknown; message?: unknown };
+
+function comoErrorLike(error: unknown): ErrorLike {
+  return typeof error === "object" && error !== null ? (error as ErrorLike) : {};
+}
+
+/** Tiene la forma de un error de nodemailer/SMTP (y no de Prisma u otro fallo interno). */
+export function pareceErrorDeCorreo(error: unknown): boolean {
+  if (error instanceof SmtpNotConfiguredError) return true;
+  const e = comoErrorLike(error);
+  if (typeof e.name === "string" && e.name.startsWith("PrismaClient")) return false;
+  if (typeof e.code === "string" && /^P\d{4}$/.test(e.code)) return false;
+  return typeof e.code === "string" || typeof e.responseCode === "number";
+}
+
+/**
+ * Regla: global (el envío masivo se pausa) si es SMTP sin configurar, un código
+ * de conexión/credenciales, una respuesta de cuota o limitación del proveedor
+ * (421/450/451/452/454, 4.7.x, 5.4.5, 5.7.x), un error de Prisma o cualquier
+ * error que no parezca de nodemailer. Del destinatario si trae `responseCode`
+ * o un `code` de correo (p. ej. EENVELOPE) sin ser de los anteriores.
+ */
+export function clasificarMailError(error: unknown): "global" | "destinatario" {
+  if (error instanceof SmtpNotConfiguredError) return "global";
+  const e = comoErrorLike(error);
+  if (typeof e.code === "string" && CODIGOS_GLOBALES.has(e.code)) return "global";
+  if (typeof e.responseCode === "number" && RESPONSE_CODES_GLOBALES.has(e.responseCode)) return "global";
+  const texto = [e.response, e.message].filter((t): t is string => typeof t === "string").join(" ");
+  if (ESTADO_MEJORADO_GLOBAL.test(texto)) return "global";
+  // Errores de Prisma (base de datos caída, etc.) afectan a todos los envíos; si no
+  // se reconoce el error, mejor pausar que marcar error uno por uno.
+  return pareceErrorDeCorreo(error) ? "destinatario" : "global";
 }
 
 /**

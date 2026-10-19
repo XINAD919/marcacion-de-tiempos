@@ -2,16 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { initials } from "@/lib/initials";
 import { etiquetaOpcion } from "@/lib/catalogo/nombres";
+import { horasAproximadas } from "@/lib/carnets/formato";
+import { contarPendientes, envioActivo, listarSinCorreo } from "@/lib/server/envioCarnetsService";
+import { getConfig } from "@/lib/server/config";
 import { listCatalogo } from "@/lib/server/catalogoService";
 import { PAGE_SIZE, type UsuarioRow, listUsuarios } from "@/lib/server/usuarioService";
 import { ESTADO_OPCIONES, type Filters, TIPO_OPCIONES, hrefWith, parseUsuarioFilters } from "@/lib/usuarios/filters";
 import { etiquetaTipo } from "@/lib/usuarios/tipoUsuario";
 import { formatCedula } from "@/lib/usuarios/userInput";
 import { cn } from "@/lib/utils";
+import { EnviarDialog } from "./carnets/enviar-dialog";
 import { FiltersBar } from "./filters-bar";
 
 export const metadata: Metadata = { title: "Usuarios" };
@@ -26,7 +30,14 @@ function EstadoPill({ user }: { user: UsuarioRow }) {
 
 export default async function UsuariosPage({ searchParams }: PageProps<"/admin/usuarios">) {
   const filters = parseUsuarioFilters(await searchParams);
-  const [{ rows, total, page, counts }, catalogo] = await Promise.all([listUsuarios(filters), listCatalogo()]);
+  const [{ rows, total, page, counts }, catalogo, pendientes, sinCorreo, activo, config] = await Promise.all([
+    listUsuarios(filters),
+    listCatalogo(),
+    contarPendientes(),
+    listarSinCorreo(),
+    envioActivo(),
+    getConfig(),
+  ]);
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
@@ -35,11 +46,37 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
 
   return (
     <>
+      {activo && (
+        <p role="status" className="border-b border-brand-amber/40 bg-brand-amber/15 px-8 py-3 text-sm text-brand-amber-ink tabular-nums">
+          {activo.estado === "pausado"
+            ? `Hay un envío de carnets pausado: ${numberFormat.format(activo.enviados)} de ${numberFormat.format(activo.total)} enviados${activo.motivoPausa ? ` (${activo.motivoPausa.replace(/\.$/, "")})` : ""}.`
+            : `Hay un envío de carnets en curso: ${numberFormat.format(activo.enviados)} de ${numberFormat.format(activo.total)} enviados.`}{" "}
+          <Link href="/admin/usuarios/carnets" className="font-semibold underline">
+            Ver progreso
+          </Link>
+        </p>
+      )}
       <PageHeader
         title="Usuarios"
         description={`${numberFormat.format(counts.registrados)} registrados · ${numberFormat.format(counts.activos)} activos · ${numberFormat.format(counts.inactivos)} inactivos`}
         actions={
           <>
+            {activo ? (
+              <Link href="/admin/usuarios/carnets" className={buttonVariants({ variant: "outline" })}>
+                Ver envío de carnets
+              </Link>
+            ) : pendientes === 0 ? (
+              <Button variant="outline" disabled>
+                Todos tienen su carnet
+              </Button>
+            ) : (
+              <EnviarDialog
+                pendientes={pendientes}
+                porHora={config.carnetsPorHora}
+                duracion={horasAproximadas(pendientes, config.carnetsPorHora)}
+                sinCorreo={sinCorreo.map(({ id, nombre }) => ({ id, nombre }))}
+              />
+            )}
             <Link href="/admin/usuarios/importar" className={buttonVariants({ variant: "outline" })}>
               Importar desde Excel
             </Link>

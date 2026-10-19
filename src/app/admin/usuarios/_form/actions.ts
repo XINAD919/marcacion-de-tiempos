@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { auth } from "@/lib/server/auth";
 import { createUsuario, updateUsuario } from "@/lib/server/usuarioService";
 import { type UsuarioErrors, type UsuarioField, validateUsuarioInput } from "@/lib/usuarios/userInput";
@@ -16,7 +15,9 @@ export type UsuarioFormState =
       /** Lo escrito: React 19 reinicia el formulario tras la acción. */
       values: Record<string, string>;
     }
-  | { status: "error"; message: string; values: Record<string, string> };
+  | { status: "error"; message: string; values: Record<string, string> }
+  /** Guardado: el cliente avisa y navega a `redirectTo` (así el aviso sobrevive al cambio de página). */
+  | { status: "saved"; redirectTo: string; values: Record<string, string> };
 
 const FIELDS: (UsuarioField | "activo")[] = [
   "tipo",
@@ -69,5 +70,9 @@ export async function guardarUsuario(
   }
 
   revalidatePath("/admin/usuarios");
-  redirect(formData.get("intent") === "enrolar" ? `/admin/enrolar/${result.id}` : "/admin/usuarios");
+  return {
+    status: "saved",
+    redirectTo: formData.get("intent") === "enrolar" ? `/admin/enrolar/${result.id}` : "/admin/usuarios",
+    values,
+  };
 }

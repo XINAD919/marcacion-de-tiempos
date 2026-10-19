@@ -8,29 +8,30 @@ datasource db {
 }
 
 model User {
-  id              String          @id @default(uuid())
-  cedula          String          @unique
+  id              String            @id @default(uuid())
+  cedula          String            @unique
   nombre          String
   email           String?
   // practicante | natural (src/lib/usuarios/tipoUsuario.ts). Universidad /
   // técnica / colegio lo dice la institución.
-  tipo            String          @default("practicante") @db.VarChar(20)
+  tipo            String            @default("practicante") @db.VarChar(20)
   // Catálogo de la maqueta 4f. NULL para voluntarios naturales.
   institucionId   Int?
-  institucion     Institucion?    @relation(fields: [institucionId], references: [id])
+  institucion     Institucion?      @relation(fields: [institucionId], references: [id])
   sedeId          Int?
-  sede            Sede?           @relation(fields: [sedeId], references: [id])
+  sede            Sede?             @relation(fields: [sedeId], references: [id])
   // Las define el convenio con la institución (maqueta 4c). 0 en naturales.
-  horasRequeridas Int             @default(0)
-  fechaInicio     DateTime?       @db.Date
+  horasRequeridas Int               @default(0)
+  fechaInicio     DateTime?         @db.Date
   // Horario asignado "HH:mm"; sirve para marcar llegadas tarde.
-  horaInicio      String?         @db.VarChar(5)
-  horaFin         String?         @db.VarChar(5)
-  activo          Boolean         @default(true)
-  fechaRegistro   DateTime        @default(now())
+  horaInicio      String?           @db.VarChar(5)
+  horaFin         String?           @db.VarChar(5)
+  activo          Boolean           @default(true)
+  fechaRegistro   DateTime          @default(now())
   embeddings      FaceEmbedding[]
   attendance      AttendanceLog[]
   carnet          CarnetVirtual?
+  enviosCarnet    EnvioCarnetItem[]
 
   @@index([nombre])
   @@index([tipo])
@@ -48,6 +49,7 @@ model Admin {
 
   marcacionesRegistradas AttendanceLog[] @relation("MarcacionRegistrada")
   marcacionesAnuladas    AttendanceLog[] @relation("MarcacionAnulada")
+  enviosCarnets          EnvioCarnets[]
 }
 
 model FaceEmbedding {
@@ -117,6 +119,8 @@ model Configuracion {
   exigenciaReconocimiento      String   @default("equilibrado") @db.VarChar(20)
   intentosAntesQr              Int      @default(3)
   jornadaMaximaHoras           Int      @default(9)
+  // Tope del envío masivo de carnets virtuales (límite del proveedor de correo).
+  carnetsPorHora               Int      @default(100)
   actualizadoEn                DateTime @updatedAt
   actualizadoPor               String?
 }
@@ -162,4 +166,37 @@ model Sede {
   horaCierre   String? @db.VarChar(5)
   activa       Boolean @default(true)
   usuarios     User[]
+}
+
+// Envío masivo de carnets virtuales. Uno solo en-curso o pausado a la vez; los
+// items son la instantánea de pendientes al iniciar. Los FK no cascadean en
+// User/Admin: SQL Server no admite varias rutas de borrado en cascada.
+model EnvioCarnets {
+  id            String            @id @default(uuid())
+  iniciadoPorId String
+  iniciadoPor   Admin             @relation(fields: [iniciadoPorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // en-curso | pausado | terminado
+  estado        String            @db.VarChar(12)
+  motivoPausa   String?           @db.NVarChar(300)
+  total         Int
+  creadoEn      DateTime          @default(now())
+  terminadoEn   DateTime?
+  items         EnvioCarnetItem[]
+
+  @@index([estado])
+}
+
+model EnvioCarnetItem {
+  id          String       @id @default(uuid())
+  envioId     String
+  envio       EnvioCarnets @relation(fields: [envioId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // pendiente | enviando | enviado | omitido | error
+  estado      String       @db.VarChar(10)
+  motivoError String?      @db.NVarChar(300)
+  intentadoEn DateTime?
+
+  @@unique([envioId, userId])
+  @@index([envioId, estado])
 }

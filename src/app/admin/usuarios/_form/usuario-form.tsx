@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { InstitucionCombobox } from "@/components/admin/institucion-combobox";
 import { PageHeader } from "@/components/admin/page-header";
 import { SegmentedControl } from "@/components/admin/segmented-control";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { notificar } from "@/lib/client/avisos";
 import type { InstitucionOpcion } from "@/lib/catalogo/institucion";
 import { etiquetaOpcion, opcionesVisibles } from "@/lib/catalogo/nombres";
 import type { SedeOpcion } from "@/lib/catalogo/sede";
@@ -94,6 +96,16 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, instituciones, se
   const [state, action, pending] = useActionState<UsuarioFormState, FormData>(guardarUsuario, {
     status: "idle",
   });
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state.status === "saved") {
+      notificar({ ok: true }, "Usuario guardado");
+      router.push(state.redirectTo);
+    } else if (state.status === "invalid") notificar({ ok: false, errors: state.errors }, "");
+    else if (state.status === "error") notificar({ ok: false, message: state.message }, "");
+  }, [state, router]);
+
   const values: Record<string, string> = state.status === "idle" ? { ...defaults } : state.values;
   const errors = state.status === "invalid" ? state.errors : {};
   const errorCount = Object.keys(errors).length;
@@ -470,15 +482,14 @@ export function UsuarioForm({ userId, defaults, fotos, carnet, instituciones, se
         <p role="status" className="mr-auto text-[13.5px] font-medium text-brand-red-ink">
           {errorCount > 0 &&
             `Corrige ${errorCount} ${errorCount === 1 ? "campo" : "campos"} para poder guardar`}
-          {state.status === "error" && state.message}
         </p>
         <Link href="/admin/usuarios" className={buttonVariants({ variant: "outline" })}>
           Cancelar
         </Link>
-        <Button type="submit" name="intent" value="guardar" variant="outline" disabled={pending}>
+        <Button type="submit" name="intent" value="guardar" variant="outline" disabled={pending || state.status === "saved"}>
           Guardar
         </Button>
-        <Button type="submit" name="intent" value="enrolar" disabled={pending}>
+        <Button type="submit" name="intent" value="enrolar" disabled={pending || state.status === "saved"}>
           {pending ? "Guardando…" : "Guardar y enrolar rostro"}
         </Button>
       </footer>

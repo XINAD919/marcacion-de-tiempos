@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { SettingsCard } from "@/components/admin/setting-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { notificar } from "@/lib/client/avisos";
 import { type PruebaCorreoState, enviarCorreoPrueba } from "./actions";
 
 /**
@@ -15,6 +16,11 @@ export function PruebaCorreo({ configured, defaultTo }: { configured: boolean; d
     status: "idle",
   });
   const to = state.status === "idle" ? defaultTo : state.to;
+
+  useEffect(() => {
+    if (state.status === "sent") notificar({ ok: true }, `Correo de prueba enviado a ${state.to}`);
+    else if (state.status === "error") notificar({ ok: false, message: state.message }, "");
+  }, [state]);
 
   return (
     <SettingsCard title="Probar envío">
@@ -41,13 +47,8 @@ export function PruebaCorreo({ configured, defaultTo }: { configured: boolean; d
             {pending ? "Enviando…" : "Enviar prueba"}
           </Button>
         </div>
-        <p id="prueba-resultado" role="status" className="text-[13.5px] font-semibold">
-          {!pending && state.status === "sent" && (
-            <span className="text-brand-green-ink">
-              Prueba enviada a {state.to}. Revisa la bandeja de entrada (y la de correo no deseado).
-            </span>
-          )}
-          {!pending && state.status === "error" && <span className="text-brand-red-ink">{state.message}</span>}
+        <p id="prueba-resultado" className="text-[13.5px] text-muted-foreground">
+          Si el envío sale bien, revisa la bandeja de entrada (y la de correo no deseado).
         </p>
       </form>
     </SettingsCard>

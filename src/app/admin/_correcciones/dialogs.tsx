@@ -33,7 +33,7 @@ interface TriggerProps {
 const textareaClass =
   "min-h-20 w-full min-w-0 rounded-lg border-[1.5px] border-input bg-white px-3.5 py-2 text-[14.5px] text-navy transition-colors outline-none placeholder:text-navy/45 focus-visible:border-navy focus-visible:ring-3 focus-visible:ring-navy/15 aria-invalid:border-brand-red aria-invalid:ring-3 aria-invalid:ring-brand-red/15";
 
-/** Estructura común: Dialog controlado, formulario sin reinicio y mensaje general sobre el pie. */
+/** Estructura común: Dialog controlado, formulario sin reinicio y aviso del resultado. */
 function CorreccionDialog({
   trigger,
   triggerStyle = "enlace",
@@ -42,6 +42,7 @@ function CorreccionDialog({
   submitLabel,
   action,
   hidden,
+  exito,
   children,
   campos,
   canSubmit = true,
@@ -52,6 +53,8 @@ function CorreccionDialog({
   submitLabel: string;
   action: (formData: FormData) => Promise<CorreccionActionResult>;
   hidden: Record<string, string>;
+  /** Texto del aviso cuando se guarda. */
+  exito: string;
   /** Campos propios del diálogo; reciben los errores por campo. */
   campos?: (errors: Partial<Record<string, string>>) => React.ReactNode;
   children?: React.ReactNode;
@@ -60,10 +63,14 @@ function CorreccionDialog({
   onClose?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { onSubmit, pending, errors, message, reset } = useCatalogoForm(action, () => {
-    setOpen(false);
-    onClose?.();
-  });
+  const { onSubmit, pending, errors, reset } = useCatalogoForm(
+    action,
+    () => {
+      setOpen(false);
+      onClose?.();
+    },
+    exito
+  );
   const motivoId = useId();
 
   return (
@@ -100,11 +107,6 @@ function CorreccionDialog({
             />
           </DialogField>
           {children}
-          {message && (
-            <p role="alert" className="text-sm font-semibold text-brand-red-ink">
-              {message}
-            </p>
-          )}
           <DialogFooter>
             <Button type="submit" disabled={pending || !canSubmit}>
               {pending ? "Guardando…" : submitLabel}
@@ -159,6 +161,7 @@ export function RegistrarSalidaDialog({
       }
       submitLabel="Registrar salida"
       action={registrarSalidaAction}
+      exito="Salida registrada"
       hidden={{ marcaId: entradaId }}
       campos={(errors) => (
         <HoraField
@@ -188,6 +191,7 @@ export function RegistrarEntradaDialog({
       }
       submitLabel="Registrar entrada"
       action={registrarEntradaAction}
+      exito="Entrada registrada"
       hidden={{ marcaId: salidaId }}
       campos={(errors) => <HoraField label="Hora de entrada" inicial={() => ""} error={errors.hora} />}
     />
@@ -213,6 +217,7 @@ export function CorregirHoraDialog({
       }
       submitLabel="Corregir hora"
       action={corregirHoraAction}
+      exito="Hora corregida"
       hidden={{ marcaId }}
       campos={(errors) => <HoraField label={`Nueva hora de la ${nombre}`} inicial={() => hora} error={errors.hora} />}
     />
@@ -234,6 +239,7 @@ export function AnularDialog({
       description={`${descripcion}. No se borra: queda en el historial como anulada y deja de sumar horas.`}
       submitLabel="Anular marcación"
       action={anularAction}
+      exito="Marcación anulada"
       onClose={() => setIncluir(true)}
       hidden={{ marcaId, incluirPareja: String(Boolean(pareja) && incluir) }}
     >
@@ -268,6 +274,7 @@ export function RestaurarDialog({ marcaId, ...trigger }: TriggerProps & { marcaI
       description="La marcación vuelve a sumar horas. Queda registrada como una restauración de coordinación."
       submitLabel="Restaurar marcación"
       action={restaurarAction}
+      exito="Marcación restaurada"
       hidden={{ marcaId }}
     />
   );
@@ -308,6 +315,7 @@ export function ReasignarDialog({
       description={`${descripcion}. Pasa a otro practicante con la misma hora; la original queda anulada en el historial.`}
       submitLabel="Reasignar marcación"
       action={reasignarAction}
+      exito="Marcación reasignada"
       onClose={() => {
         setQ("");
         setResultados([]);
