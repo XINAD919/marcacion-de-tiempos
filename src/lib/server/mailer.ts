@@ -132,7 +132,7 @@ export interface MailMessage {
  * Solo para pruebas: `MAIL_TRANSPORT=json` arma el correo pero no lo envía.
  * Nunca en producción, aunque la variable quede puesta.
  */
-function usaTransporteJson(): boolean {
+export function usaTransporteJson(): boolean {
   return process.env.MAIL_TRANSPORT === "json" && process.env.NODE_ENV !== "production";
 }
 

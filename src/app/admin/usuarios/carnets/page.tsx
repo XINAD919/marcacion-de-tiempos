@@ -64,7 +64,7 @@ export default async function EnvioCarnetsPage() {
             role="status"
             className="rounded-lg border border-brand-amber bg-brand-amber/15 px-4 py-3 text-sm text-brand-amber-ink"
           >
-            El envío se pausó solo: {envio.motivoPausa}. Revisa el correo de salida en{" "}
+            El envío se pausó solo: {envio.motivoPausa.replace(/\.$/, "")}. Revisa el correo de salida en{" "}
             <Link href="/admin/configuracion" className="font-semibold underline">
               Configuración
             </Link>{" "}

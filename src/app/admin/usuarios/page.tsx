@@ -49,7 +49,7 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
       {activo && (
         <p role="status" className="border-b border-brand-amber/40 bg-brand-amber/15 px-8 py-3 text-sm text-brand-amber-ink tabular-nums">
           {activo.estado === "pausado"
-            ? `Hay un envío de carnets pausado: ${numberFormat.format(activo.enviados)} de ${numberFormat.format(activo.total)} enviados${activo.motivoPausa ? ` (${activo.motivoPausa})` : ""}.`
+            ? `Hay un envío de carnets pausado: ${numberFormat.format(activo.enviados)} de ${numberFormat.format(activo.total)} enviados${activo.motivoPausa ? ` (${activo.motivoPausa.replace(/\.$/, "")})` : ""}.`
             : `Hay un envío de carnets en curso: ${numberFormat.format(activo.enviados)} de ${numberFormat.format(activo.total)} enviados.`}{" "}
           <Link href="/admin/usuarios/carnets" className="font-semibold underline">
             Ver progreso

@@ -1,3 +1,10 @@
+// Cómo correr: este spec cambia datos reales de la base y necesita un servidor que NO envíe correos.
+// Detén tu `next dev` y deja que Playwright arranque el suyo (ya trae MAIL_TRANSPORT=json), o
+// arranca el tuyo con MAIL_TRANSPORT=json. Si el servidor no está en ese modo, la prueba falla al
+// empezar, antes de tocar nada.
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { expect, test } from "@playwright/test";
 
@@ -7,6 +14,16 @@ const SUFIJO = `${Date.now()}`.slice(-7);
 const CEDULAS = [`9700${SUFIJO}1`, `9700${SUFIJO}2`];
 
 test.use({ viewport: { width: 1366, height: 768 } });
+
+// Ids desactivados por la prueba, en disco: si el proceso muere, la siguiente corrida los reactiva.
+const ARCHIVO_APARTADOS = path.join(tmpdir(), "medicion-tiempos-carnets-apartados.json");
+
+async function reactivarApartados() {
+  if (!existsSync(ARCHIVO_APARTADOS)) return;
+  const ids: string[] = JSON.parse(readFileSync(ARCHIVO_APARTADOS, "utf8"));
+  await prisma.user.updateMany({ where: { id: { in: ids } }, data: { activo: true } });
+  unlinkSync(ARCHIVO_APARTADOS);
+}
 
 const prisma = new PrismaClient();
 // Fila de configuración tal como estaba: se restaura aunque la prueba falle.
@@ -25,7 +42,26 @@ async function limpiar() {
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
 }
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser, baseURL }) => {
+  // Falla rápido, sin tocar datos, si el servidor enviaría correos de verdad.
+  const contexto = await browser.newContext({ baseURL, ignoreHTTPSErrors: true });
+  const pagina = await contexto.newPage();
+  await pagina.goto("/login");
+  await pagina.locator('input[name="email"]').fill(process.env.SEED_ADMIN_EMAIL!);
+  await pagina.locator('input[name="password"]').fill(process.env.SEED_ADMIN_PASSWORD!);
+  await pagina.locator('button[type="submit"]').click();
+  await pagina.waitForURL(/\/admin/);
+  const respuesta = await pagina.request.get("/api/dev/mail-mode");
+  const enModoPrueba = respuesta.ok() && (await respuesta.json()).json === true;
+  await contexto.close();
+  if (!enModoPrueba) {
+    throw new Error(
+      "El servidor no está en modo de correo de prueba (MAIL_TRANSPORT=json): enviaría correos reales. " +
+        "Detén tu next dev para que Playwright arranque el suyo, o inícialo con MAIL_TRANSPORT=json."
+    );
+  }
+
+  await reactivarApartados();
   await limpiar();
   configOriginal = await prisma.configuracion.findUnique({ where: { id: 1 } });
   // Ritmo alto: el trabajador de segundo plano del servidor de pruebas termina el lote en segundos.
@@ -44,6 +80,7 @@ test.beforeAll(async () => {
     select: { id: true },
   });
   apartados = ajenos.map((u) => u.id);
+  writeFileSync(ARCHIVO_APARTADOS, JSON.stringify(apartados));
   await prisma.user.updateMany({ where: { id: { in: apartados } }, data: { activo: false } });
   for (const [i, cedula] of CEDULAS.entries()) {
     await prisma.user.create({
@@ -61,7 +98,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await limpiar();
-  await prisma.user.updateMany({ where: { id: { in: apartados } }, data: { activo: true } });
+  await reactivarApartados();
   if (configOriginal) {
     const { id, actualizadoEn, ...datos } = configOriginal;
     void actualizadoEn;

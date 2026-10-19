@@ -59,13 +59,15 @@ export function EnviarDialog({
         <DialogHeader>
           <DialogTitle>Enviar carnets pendientes</DialogTitle>
           <DialogDescription className="tabular-nums">
-            Se enviarán {numero.format(pendientes)} carnets, a unos {numero.format(porHora)} por hora ({duracion}).
+            {pendientes === 1 ? "Se enviará 1 carnet" : `Se enviarán ${numero.format(pendientes)} carnets`}, a unos {numero.format(porHora)} por hora ({duracion}).
           </DialogDescription>
         </DialogHeader>
         {sinCorreo.length > 0 && (
           <div className="flex flex-col gap-2 text-sm text-navy">
             <p className="font-semibold tabular-nums">
-              {numero.format(sinCorreo.length)} usuarios activos no tienen correo y no lo recibirán:
+              {sinCorreo.length === 1
+                ? "1 usuario activo no tiene correo y no lo recibirá:"
+                : `${numero.format(sinCorreo.length)} usuarios activos no tienen correo y no lo recibirán:`}
             </p>
             <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
               {sinCorreo.map((user) => (

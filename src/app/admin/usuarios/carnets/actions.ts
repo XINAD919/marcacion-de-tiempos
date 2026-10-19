@@ -5,6 +5,7 @@ import type { ResultadoAccion } from "@/lib/client/avisos";
 import { auth } from "@/lib/server/auth";
 import { iniciarEnvio, pausarEnvio, reanudarEnvio } from "@/lib/server/envioCarnetsService";
 
+const GENERICO = "No pudimos completar la acción. Inténtalo de nuevo.";
 const SESION_TERMINADA = "Tu sesión terminó. Vuelve a iniciar sesión para continuar.";
 
 function revalidar() {
@@ -16,7 +17,13 @@ export async function iniciarEnvioAction(): Promise<ResultadoAccion & { envioId?
   const session = await auth();
   if (!session?.user?.id) return { ok: false, message: SESION_TERMINADA };
 
-  const result = await iniciarEnvio(session.user.id);
+  let result;
+  try {
+    result = await iniciarEnvio(session.user.id);
+  } catch (error) {
+    console.error("[carnets] No se pudo iniciar el envío", { adminId: session.user.id }, error);
+    return { ok: false, message: GENERICO };
+  }
   if (result.ok) {
     revalidar();
     return { ok: true, envioId: result.envioId };
@@ -32,7 +39,13 @@ export async function iniciarEnvioAction(): Promise<ResultadoAccion & { envioId?
 export async function pausarEnvioAction(envioId: string): Promise<ResultadoAccion> {
   const session = await auth();
   if (!session?.user) return { ok: false, message: SESION_TERMINADA };
-  const hecho = await pausarEnvio(envioId);
+  let hecho: boolean;
+  try {
+    hecho = await pausarEnvio(envioId);
+  } catch (error) {
+    console.error("[carnets] No se pudo pausar el envío", { envioId }, error);
+    return { ok: false, message: GENERICO };
+  }
   revalidar();
   return hecho ? { ok: true } : { ok: false, message: "El envío ya no está en curso. Recarga la página." };
 }
@@ -40,7 +53,13 @@ export async function pausarEnvioAction(envioId: string): Promise<ResultadoAccio
 export async function reanudarEnvioAction(envioId: string): Promise<ResultadoAccion> {
   const session = await auth();
   if (!session?.user) return { ok: false, message: SESION_TERMINADA };
-  const hecho = await reanudarEnvio(envioId);
+  let hecho: boolean;
+  try {
+    hecho = await reanudarEnvio(envioId);
+  } catch (error) {
+    console.error("[carnets] No se pudo reanudar el envío", { envioId }, error);
+    return { ok: false, message: GENERICO };
+  }
   revalidar();
   return hecho ? { ok: true } : { ok: false, message: "El envío ya no está pausado. Recarga la página." };
 }
