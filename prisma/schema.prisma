@@ -98,6 +98,7 @@ model AttendanceLog {
   reemplazos      AttendanceLog[] @relation("Reemplazo")
 
   @@index([userId, marcadoEn])
+  @@index([reemplazaAId])
 }
 
 // Reglas globales de la maqueta 4g. Una sola fila (id = 1); si no existe se
