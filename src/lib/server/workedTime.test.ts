@@ -60,7 +60,19 @@ describe("sumWorkedMs", () => {
   });
 
   describe("con jornada máxima por día", () => {
-    it("no suma más del tope en un día (salida marcada al día siguiente)", () => {
+    it("no suma más del tope en un día", () => {
+      expect(
+        sumWorkedMs(
+          [
+            { tipo: "IN", marcadoEn: at("06:00") },
+            { tipo: "OUT", marcadoEn: at("20:00") },
+          ],
+          { maxDailyMs: 9 * HOUR }
+        )
+      ).toBe(9 * HOUR);
+    });
+
+    it("una salida de otro día no se empareja con la entrada (no suma)", () => {
       expect(
         sumWorkedMs(
           [
@@ -69,7 +81,18 @@ describe("sumWorkedMs", () => {
           ],
           { maxDailyMs: 9 * HOUR }
         )
-      ).toBe(9 * HOUR);
+      ).toBe(0);
+    });
+
+    it("una salida huérfana de hoy no se empareja con una entrada abierta de un día anterior", () => {
+      expect(
+        sumWorkedMs([
+          { tipo: "IN", marcadoEn: at("08:00", "2026-09-11") },
+          { tipo: "OUT", marcadoEn: at("09:00", "2026-09-14") },
+          { tipo: "IN", marcadoEn: at("10:00", "2026-09-14") },
+          { tipo: "OUT", marcadoEn: at("12:00", "2026-09-14") },
+        ])
+      ).toBe(2 * HOUR);
     });
 
     it("aplica el tope a la suma de todos los tramos del día", () => {

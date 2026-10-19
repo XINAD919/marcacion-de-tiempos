@@ -6,7 +6,7 @@ export interface AttendanceMark {
 export interface WorkedTimeOptions {
   /**
    * Tope de tiempo que suma un día ("Jornada máxima por día", maqueta 4g).
-   * Evita sumar horas de más por una salida marcada al día siguiente.
+   * Evita sumar horas de más por varios tramos largos en un mismo día.
    */
   maxDailyMs?: number;
 }
@@ -21,7 +21,8 @@ function dayKey(date: Date): string {
  * Las horas nunca se guardan: siempre se derivan de `attendance_logs`
  * (AGENTS.md › Modelo de datos). Una entrada sin salida no cuenta — puede ser
  * la jornada en curso o una salida olvidada que la coordinadora corregirá.
- * Cada tramo cuenta para el día de su entrada.
+ * Una entrada solo se empareja con una salida del mismo día local, igual que
+ * `findInconsistencias`: lo que cruza de día queda sin sumar hasta corregirlo.
  */
 export function sumWorkedMs(marks: AttendanceMark[], options: WorkedTimeOptions = {}): number {
   const sorted = [...marks].sort((a, b) => a.marcadoEn.getTime() - b.marcadoEn.getTime());
@@ -33,6 +34,11 @@ export function sumWorkedMs(marks: AttendanceMark[], options: WorkedTimeOptions 
     if (mark.tipo === "IN") {
       openSince = mark.marcadoEn;
     } else if (mark.tipo === "OUT" && openSince) {
+      if (dayKey(openSince) !== dayKey(mark.marcadoEn)) {
+        // Salida de otro día: no es la pareja de esa entrada (queda pendiente de corregir).
+        openSince = null;
+        continue;
+      }
       const key = dayKey(openSince);
       byDay.set(key, (byDay.get(key) ?? 0) + mark.marcadoEn.getTime() - openSince.getTime());
       openSince = null;

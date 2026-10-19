@@ -45,6 +45,9 @@ model Admin {
   passwordHash String
   activo       Boolean  @default(true)
   creadoEn     DateTime @default(now())
+
+  marcacionesRegistradas AttendanceLog[] @relation("MarcacionRegistrada")
+  marcacionesAnuladas    AttendanceLog[] @relation("MarcacionAnulada")
 }
 
 model FaceEmbedding {
@@ -81,27 +84,41 @@ model AttendanceLog {
   deviceId  String
   marcadoEn DateTime @default(now())
 
+  // Correcciones manuales: nada se borra. Anular marca la fila y corregir /
+  // restaurar / reasignar crean una copia que apunta a la original.
+  registradoPorId String?
+  registradoPor   Admin?          @relation("MarcacionRegistrada", fields: [registradoPorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  motivo          String?         @db.NVarChar(300)
+  anuladaEn       DateTime?
+  anuladaPorId    String?
+  anuladaPor      Admin?          @relation("MarcacionAnulada", fields: [anuladaPorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  motivoAnulacion String?         @db.NVarChar(300)
+  reemplazaAId    String?
+  reemplazaA      AttendanceLog?  @relation("Reemplazo", fields: [reemplazaAId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reemplazos      AttendanceLog[] @relation("Reemplazo")
+
   @@index([userId, marcadoEn])
+  @@index([reemplazaAId])
 }
 
 // Reglas globales de la maqueta 4g. Una sola fila (id = 1); si no existe se
 // usan los valores por defecto de src/lib/server/config.ts.
 model Configuracion {
-  id                      Int      @id @default(1)
+  id                           Int      @id @default(1)
   // Minutos después de la hora de inicio antes de contar como llegada tarde.
-  toleranciaLlegadaMin    Int      @default(10)
+  toleranciaLlegadaMin         Int      @default(10)
   // Tiempo mínimo entre la entrada y la salida del mismo día; antes de eso el
   // kiosko no registra la salida y remite a coordinación.
-  minMinutosAntesSalida   Int      @default(60)
+  minMinutosAntesSalida        Int      @default(60)
   // Las mismas dos reglas, pero para los voluntarios naturales.
-  toleranciaLlegadaNaturalMin  Int @default(10)
-  minMinutosAntesSalidaNatural Int @default(60)
+  toleranciaLlegadaNaturalMin  Int      @default(10)
+  minMinutosAntesSalidaNatural Int      @default(60)
   // flexible | equilibrado | estricto → umbral de distancia facial.
-  exigenciaReconocimiento String   @default("equilibrado") @db.VarChar(20)
-  intentosAntesQr         Int      @default(3)
-  jornadaMaximaHoras      Int      @default(9)
-  actualizadoEn           DateTime @updatedAt
-  actualizadoPor          String?
+  exigenciaReconocimiento      String   @default("equilibrado") @db.VarChar(20)
+  intentosAntesQr              Int      @default(3)
+  jornadaMaximaHoras           Int      @default(9)
+  actualizadoEn                DateTime @updatedAt
+  actualizadoPor               String?
 }
 
 // Correo de salida (SMTP) para enviar carnets virtuales. Una sola fila (id = 1).

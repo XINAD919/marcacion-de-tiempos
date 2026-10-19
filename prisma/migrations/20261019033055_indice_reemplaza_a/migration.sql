@@ -1,0 +1,19 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- CreateIndex
+CREATE NONCLUSTERED INDEX [AttendanceLog_reemplazaAId_idx] ON [dbo].[AttendanceLog]([reemplazaAId]);
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH

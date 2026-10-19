@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNavItemActive, type NavItem } from "./nav-config";
+import { NAV_SECTIONS, isNavItemActive, type NavItem } from "./nav-config";
 
 describe("isNavItemActive", () => {
   const configuracion: NavItem = { id: "c", label: "Configuración", href: "/admin/administradores" };
@@ -21,5 +21,17 @@ describe("isNavItemActive", () => {
 
   it("un ítem sin ruta ni `match` nunca está activo", () => {
     expect(isNavItemActive({ id: "r", label: "Reportes", href: null }, "/admin")).toBe(false);
+  });
+});
+
+describe("Marcaciones de hoy", () => {
+  const item = NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === "marcaciones");
+
+  it("tiene pantalla propia en el menú", () => {
+    expect(item?.href).toBe("/admin/marcaciones");
+  });
+
+  it("está activo en /admin/marcaciones", () => {
+    expect(item && isNavItemActive(item, "/admin/marcaciones")).toBe(true);
   });
 });

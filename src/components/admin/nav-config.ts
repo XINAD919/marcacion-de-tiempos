@@ -23,7 +23,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "OPERACIÓN",
     items: [
       { id: "kiosko", label: "Kiosko de marcación", href: "/marcacion", newTab: true },
-      { id: "marcaciones", label: "Marcaciones de hoy", href: null },
+      { id: "marcaciones", label: "Marcaciones de hoy", href: "/admin/marcaciones" },
       { id: "usuarios", label: "Usuarios", href: "/admin/usuarios" },
       {
         id: "enrolamiento",
