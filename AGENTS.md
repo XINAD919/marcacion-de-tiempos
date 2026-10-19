@@ -158,7 +158,15 @@ src/
 - `sede`: id, nombre (único), direccion, hora_apertura / hora_cierre ("HH:mm", horario por
   defecto de sus practicantes), activa. No se borra: se inactiva.
 - `face_embeddings`: id, user_id (FK), embedding (VARBINARY), modelo, fecha_captura
-- `attendance_logs`: id, user_id (FK), tipo (IN/OUT), metodo (face/qr), confianza, device_id, marcado_en
+- `attendance_logs`: id, user_id (FK), tipo (IN/OUT), metodo (face/qr/manual), confianza, device_id,
+  marcado_en, más los campos de corrección: registrado_por_id (admin que la creó a mano), motivo
+  (obligatorio en manuales, 3–300 caracteres), anulada_en, anulada_por_id, motivo_anulacion y
+  reemplaza_a_id (la marcación que esta copia sustituye). **Nada se borra**: anular marca la fila y
+  corregir / restaurar / reasignar anulan la original y crean una copia con `reemplaza_a_id`.
+  Las manuales llevan `metodo = "manual"` y `device_id = "coordinacion"`, y no pasan por el
+  «tiempo mínimo antes de la salida». Toda lectura que alimente horas, tipo de la siguiente
+  marcación, reportes, exportaciones o Marcaciones de hoy filtra con `MARCACION_VALIDA`
+  (`src/lib/server/marcacionValida.ts`).
 - `carnet_virtual`: user_id (PK/FK), token (único), creado_en, enviado_en, enviado_a. El QR
   codifica `CARNET:<token>` (`src/lib/carnetQr.ts`), nunca la cédula; "enviar uno nuevo" cambia
   el token y el QR anterior deja de servir. Es tabla aparte porque en SQL Server un `UNIQUE`
@@ -332,10 +340,12 @@ Escala por contexto:
 - [ ] Política de eliminación vs. inactivación de usuarios en el módulo de administración
 - [ ] Duración/fecha límite formal de la práctica, para el objetivo SMART del proyecto
 - [ ] Logo oficial en vectorial (SVG) — las maquetas usan una marca de posición
-- [ ] Implementar la corrección manual de marcaciones (maqueta 4e): la necesitan la salida
-      anticipada y las salidas olvidadas, que hoy remiten a coordinación
+- [x] Corrección manual de marcaciones (maqueta 4e): registrar salida / entrada, corregir hora,
+      anular, restaurar y reasignar, con motivo obligatorio; salidas olvidadas y salidas tempranas
+      se corrigen desde el perfil o desde «Salidas sin marcar» en Marcaciones de hoy
 - [x] Formulario de crear/editar usuario (4c), listado (2a), importación (2b) y enrolamiento (2c)
-- [ ] Vista de detalle del practicante con historial (maqueta 4d)
+- [x] Vista de detalle del practicante con historial (maqueta 4d): `/admin/usuarios/[userId]`
+- [ ] Fin estimado en el perfil (4d): definir con la cliente a qué ritmo proyectar las horas restantes
 - [ ] Roles de administradores (coordinación / apoyo / consulta, maqueta 4g) — confirmar con la
       cliente; hoy todo administrador puede todo
 - [x] Catálogo de Instituciones y sedes (4f): desplegables en formulario y filtros; la
