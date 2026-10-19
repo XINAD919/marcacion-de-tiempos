@@ -13,7 +13,8 @@ import { type Pendiente, type Scope, getMarcacionesDelDia, listPendientes } from
 import { cn } from "@/lib/utils";
 import { AutoRefresh } from "../reportes/auto-refresh";
 import { RegistrarEntradaDialog, RegistrarSalidaDialog } from "../_correcciones/dialogs";
-import { FiltrosMarcaciones, MARCACIONES_ORDER, MARCACIONES_PATH } from "./filtros";
+import { FiltrosMarcaciones } from "./filtros";
+import { MARCACIONES_ORDER, MARCACIONES_PATH } from "./params";
 
 export const metadata: Metadata = { title: "Marcaciones de hoy" };
 

@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type Params, buildHref } from "@/lib/reportes/href";
 import { cn } from "@/lib/utils";
+import { MARCACIONES_ORDER, MARCACIONES_PATH } from "./params";
 
-export const MARCACIONES_PATH = "/admin/marcaciones";
-export const MARCACIONES_ORDER = ["sede", "institucion", "vista", "pendientes", "page"] as const;
 
 interface Opcion {
   value: string;
