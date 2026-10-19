@@ -75,7 +75,7 @@ afterAll(async () => {
 const ahora = () => new Date();
 const mas = (base: Date, ms: number) => new Date(base.getTime() + ms);
 
-function enviarSimulado(extra?: (userId: string) => Promise<SendCarnetResult> | undefined) {
+function enviarSimulado(extra?: (userId: string) => Promise<SendCarnetResult | undefined> | undefined) {
   const llamadas: string[] = [];
   const enviar = vi.fn(async (userId: string): Promise<SendCarnetResult> => {
     llamadas.push(userId);
@@ -150,16 +150,22 @@ describe("procesarSiguiente", () => {
     expect(await procesarSiguiente({ enviar: enviarSimulado().enviar })).toBe("sin-envio");
   });
 
-  it("dos pasos en paralelo no envían dos veces el mismo item", async () => {
-    await crearUsuario("001");
-    await crearUsuario("002");
+  it("pasos en paralelo no envían dos veces el mismo item", async () => {
+    const claves = ["001", "002", "003", "004", "005", "006"];
+    for (const clave of claves) await crearUsuario(clave);
     await iniciar();
-    const { enviar, llamadas } = enviarSimulado();
+    // El envío tarda un poco: ningún paso ve el "enviado" de otro antes de comprobar el ritmo.
+    const { enviar, llamadas } = enviarSimulado(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return undefined;
+    });
     const now = ahora();
-    const resultados = await Promise.all([procesarSiguiente({ enviar, now }), procesarSiguiente({ enviar, now })]);
-    expect(resultados).toEqual(["enviado", "enviado"]);
+    const resultados = await Promise.all(claves.map(() => procesarSiguiente({ enviar, now })));
+    expect(resultados.every((r) => r === "enviado")).toBe(true);
     expect(new Set(llamadas).size).toBe(llamadas.length);
-    expect(llamadas).toHaveLength(2);
+    expect(llamadas).toHaveLength(claves.length);
+    // Nota: el intervalo no se aplica entre pasos simultáneos (todos pasan la comprobación a la
+    // vez); es así por diseño, porque el trabajador es de un solo proceso y nunca solapa pasos.
   });
 
   it("un error global pausa el envío y devuelve el item a pendiente", async () => {
@@ -262,6 +268,77 @@ describe("recuperarAlArrancar", () => {
     expect(viejo.estado).toBe("error");
     expect(viejo.motivoError).toBe("No sabemos si el correo llegó: el servidor se reinició mientras se enviaba");
     expect((await estadoItem(envioId, "002")).estado).toBe("enviando");
+  });
+});
+
+describe("límites del proveedor", () => {
+  const silencio = () => vi.spyOn(console, "error").mockImplementation(() => {});
+
+  it("una cuota diaria agotada pausa el envío y devuelve el item a pendiente", async () => {
+    await crearUsuario("001");
+    const envioId = await iniciar();
+    silencio();
+    const { enviar, llamadas } = enviarSimulado(() =>
+      Promise.reject({ code: "EENVELOPE", responseCode: 550, response: "550 5.4.5 Daily sending limit exceeded" })
+    );
+    expect(await procesarSiguiente({ enviar, now: ahora() })).toBe("pausado");
+    expect((await prisma.envioCarnets.findUniqueOrThrow({ where: { id: envioId } })).estado).toBe("pausado");
+    expect((await prisma.envioCarnetItem.findFirstOrThrow({ where: { envioId, userId: llamadas[0] } })).estado).toBe("pendiente");
+    vi.restoreAllMocks();
+  });
+
+  it("un error del destinatario también adelanta el intervalo", async () => {
+    await crearUsuario("001");
+    await crearUsuario("002");
+    await iniciar();
+    silencio();
+    const { enviar } = enviarSimulado(() => Promise.reject({ code: "EENVELOPE", responseCode: 550, response: "550 5.1.1 No existe" }));
+    const t0 = ahora();
+    expect(await procesarSiguiente({ enviar, now: t0 })).toBe("error");
+    expect(await procesarSiguiente({ enviar, now: mas(t0, 10_000) })).toBe("esperando");
+    vi.restoreAllMocks();
+  });
+
+  it("cinco errores seguidos de correo pausan el envío", async () => {
+    for (const clave of ["001", "002", "003", "004", "005", "006"]) await crearUsuario(clave);
+    const envioId = await iniciar();
+    silencio();
+    const { enviar } = enviarSimulado(() => Promise.reject({ code: "EENVELOPE", responseCode: 550, response: "550 5.1.1 No existe" }));
+    let now = ahora();
+    const resultados: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      resultados.push(await procesarSiguiente({ enviar, now }));
+      now = mas(now, 40_000);
+    }
+    expect(resultados.slice(0, 4)).toEqual(["error", "error", "error", "error"]);
+    expect(resultados[4]).toBe("pausado");
+    const envio = await prisma.envioCarnets.findUniqueOrThrow({ where: { id: envioId } });
+    expect(envio.estado).toBe("pausado");
+    expect(envio.motivoPausa).toBe("Se pausó tras 5 errores seguidos de correo. Revisa el correo de salida antes de reanudar.");
+    vi.restoreAllMocks();
+  });
+
+  it("el mismo item que pausa dos veces por un fallo interno queda en error", async () => {
+    await crearUsuario("001");
+    const envioId = await iniciar();
+    silencio();
+    // Solo falla el usuario de la prueba; los demás pendientes de la base se envían sin problema.
+    const { enviar } = enviarSimulado((userId) => (userId === ids["001"] ? Promise.reject(new Error("x")) : undefined));
+    let now = ahora();
+    let pausas = 0;
+    for (let i = 0; i < 30 && (await estadoItem(envioId, "001")).estado !== "error"; i++) {
+      const r = await procesarSiguiente({ enviar, now });
+      if (r === "pausado") {
+        pausas++;
+        await reanudarEnvio(envioId);
+      }
+      now = mas(now, 40_000);
+    }
+    expect(pausas).toBe(1);
+    const item = await estadoItem(envioId, "001");
+    expect(item).toMatchObject({ estado: "error", motivoError: "No se pudo generar el carnet de este usuario." });
+    expect((await prisma.envioCarnets.findUniqueOrThrow({ where: { id: envioId } })).estado).toBe("en-curso");
+    vi.restoreAllMocks();
   });
 });
 

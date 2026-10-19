@@ -2,8 +2,7 @@
 // Detén tu `next dev` y deja que Playwright arranque el suyo (ya trae MAIL_TRANSPORT=json), o
 // arranca el tuyo con MAIL_TRANSPORT=json. Si el servidor no está en ese modo, la prueba falla al
 // empezar, antes de tocar nada.
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { expect, test } from "@playwright/test";
@@ -11,18 +10,37 @@ import { expect, test } from "@playwright/test";
 process.loadEnvFile(".env");
 
 const SUFIJO = `${Date.now()}`.slice(-7);
-const CEDULAS = [`9700${SUFIJO}1`, `9700${SUFIJO}2`];
+const PREFIJO_CEDULA = "9700";
+const CEDULAS = [`${PREFIJO_CEDULA}${SUFIJO}1`, `${PREFIJO_CEDULA}${SUFIJO}2`];
 
 test.use({ viewport: { width: 1366, height: 768 } });
 
-// Ids desactivados por la prueba, en disco: si el proceso muere, la siguiente corrida los reactiva.
-const ARCHIVO_APARTADOS = path.join(tmpdir(), "medicion-tiempos-carnets-apartados.json");
+// Estado ajeno que la prueba toca (usuarios desactivados y fila de configuración), en disco dentro de
+// test-results/ (ignorado por git): si el proceso muere, la siguiente corrida lo restaura.
+const ARCHIVO_RESPALDO = path.join("test-results", ".carnets-apartados.json");
 
-async function reactivarApartados() {
-  if (!existsSync(ARCHIVO_APARTADOS)) return;
-  const ids: string[] = JSON.parse(readFileSync(ARCHIVO_APARTADOS, "utf8"));
-  await prisma.user.updateMany({ where: { id: { in: ids } }, data: { activo: true } });
-  unlinkSync(ARCHIVO_APARTADOS);
+type FilaConfig = Awaited<ReturnType<PrismaClient["configuracion"]["findUnique"]>>;
+interface Respaldo {
+  apartados: string[];
+  config: FilaConfig;
+}
+
+async function restaurarConfig(config: FilaConfig) {
+  if (config) {
+    const { id, actualizadoEn, ...datos } = config;
+    void actualizadoEn;
+    await prisma.configuracion.update({ where: { id }, data: datos });
+  } else {
+    await prisma.configuracion.deleteMany({ where: { id: 1 } });
+  }
+}
+
+async function restaurarRespaldo() {
+  if (!existsSync(ARCHIVO_RESPALDO)) return;
+  const respaldo: Respaldo = JSON.parse(readFileSync(ARCHIVO_RESPALDO, "utf8"));
+  await prisma.user.updateMany({ where: { id: { in: respaldo.apartados } }, data: { activo: true } });
+  await restaurarConfig(respaldo.config ? { ...respaldo.config, actualizadoEn: new Date() } : null);
+  unlinkSync(ARCHIVO_RESPALDO);
 }
 
 const prisma = new PrismaClient();
@@ -32,7 +50,8 @@ let configOriginal: Awaited<ReturnType<PrismaClient["configuracion"]["findUnique
 let apartados: string[] = [];
 
 async function limpiar() {
-  const usuarios = await prisma.user.findMany({ where: { cedula: { in: CEDULAS } }, select: { id: true } });
+  // Por prefijo, sin importar el sufijo: también borra restos de corridas que murieron.
+  const usuarios = await prisma.user.findMany({ where: { cedula: { startsWith: PREFIJO_CEDULA } }, select: { id: true } });
   const ids = usuarios.map((u) => u.id);
   const envios = await prisma.envioCarnetItem.findMany({ where: { userId: { in: ids } }, select: { envioId: true } });
   const envioIds = [...new Set(envios.map((e) => e.envioId))];
@@ -61,15 +80,9 @@ test.beforeAll(async ({ browser, baseURL }) => {
     );
   }
 
-  await reactivarApartados();
+  await restaurarRespaldo();
   await limpiar();
   configOriginal = await prisma.configuracion.findUnique({ where: { id: 1 } });
-  // Ritmo alto: el trabajador de segundo plano del servidor de pruebas termina el lote en segundos.
-  await prisma.configuracion.upsert({
-    where: { id: 1 },
-    update: { carnetsPorHora: 10000 },
-    create: { id: 1, carnetsPorHora: 10000 },
-  });
   const ajenos = await prisma.user.findMany({
     where: {
       activo: true,
@@ -80,7 +93,16 @@ test.beforeAll(async ({ browser, baseURL }) => {
     select: { id: true },
   });
   apartados = ajenos.map((u) => u.id);
-  writeFileSync(ARCHIVO_APARTADOS, JSON.stringify(apartados));
+  mkdirSync(path.dirname(ARCHIVO_RESPALDO), { recursive: true });
+  const respaldo: Respaldo = { apartados, config: configOriginal };
+  writeFileSync(ARCHIVO_RESPALDO, JSON.stringify(respaldo));
+  // El respaldo ya está en disco: desde aquí una muerte del proceso se repara en la siguiente corrida.
+  // Ritmo alto: el trabajador de segundo plano del servidor de pruebas termina el lote en segundos.
+  await prisma.configuracion.upsert({
+    where: { id: 1 },
+    update: { carnetsPorHora: 10000 },
+    create: { id: 1, carnetsPorHora: 10000 },
+  });
   await prisma.user.updateMany({ where: { id: { in: apartados } }, data: { activo: false } });
   for (const [i, cedula] of CEDULAS.entries()) {
     await prisma.user.create({
@@ -98,14 +120,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
 
 test.afterAll(async () => {
   await limpiar();
-  await reactivarApartados();
-  if (configOriginal) {
-    const { id, actualizadoEn, ...datos } = configOriginal;
-    void actualizadoEn;
-    await prisma.configuracion.update({ where: { id }, data: datos });
-  } else {
-    await prisma.configuracion.deleteMany({ where: { id: 1 } });
-  }
+  await restaurarRespaldo();
   await prisma.$disconnect();
 });
 

@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { esperarHasta, estimadoRestanteMs } from "@/lib/carnets/ritmo";
 import { type SendCarnetResult, sendCarnet } from "./carnet";
 import { getConfig } from "./config";
-import { clasificarMailError, describeMailError } from "./mailer";
+import { clasificarMailError, describeMailError, pareceErrorDeCorreo } from "./mailer";
 import { prisma } from "./prisma";
 
 /** Quién espera su carnet virtual: activo, con correo y sin carnet enviado. */
@@ -16,6 +16,11 @@ export const PENDIENTE_WHERE: Prisma.UserWhereInput = {
 const ACTIVOS = ["en-curso", "pausado"];
 const VENTANA_MS = 3_600_000;
 const ENVIANDO_VENCIDO_MS = 10 * 60_000;
+const MOTIVO_NO_CARNET = "No se pudo generar el carnet de este usuario.";
+const MOTIVO_PAUSA_SEGUIDOS = "Se pausó tras 5 errores seguidos de correo. Revisa el correo de salida antes de reanudar.";
+const ERRORES_SEGUIDOS_PARA_PAUSAR = 5;
+// Marca en un item devuelto a pendiente tras una pausa por un fallo que no es de correo.
+const MARCA_PAUSA_INTERNA = "pausa-por-fallo-interno";
 const MOTIVO_REINICIO = "No sabemos si el correo llegó: el servidor se reinició mientras se enviaba";
 
 export function contarPendientes(): Promise<number> {
@@ -188,7 +193,8 @@ export async function procesarSiguiente(
   const desde = new Date(now.getTime() - VENTANA_MS);
   const [ultimo, ventana] = await Promise.all([
     prisma.envioCarnetItem.aggregate({
-      where: { envioId: envio.id, estado: "enviado" },
+      // Cada intento cuenta para el ritmo, también los rechazados: el proveedor los cuenta igual.
+      where: { envioId: envio.id, estado: { in: ["enviado", "error"] } },
       _max: { intentadoEn: true },
     }),
     prisma.carnetVirtual.aggregate({
@@ -207,13 +213,13 @@ export async function procesarSiguiente(
   if (espera) return "esperando";
 
   // Reclamo: solo un paso puede pasar el item de pendiente a enviando.
-  let item: { id: string; userId: string } | null = null;
+  let item: { id: string; userId: string; motivoError: string | null } | null = null;
   const descartados: string[] = [];
   for (;;) {
     const candidato = await prisma.envioCarnetItem.findFirst({
       where: { envioId: envio.id, estado: "pendiente", id: { notIn: descartados } },
       orderBy: { id: "asc" },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, motivoError: true },
     });
     if (!candidato) break;
     const { count } = await prisma.envioCarnetItem.updateMany({
@@ -259,7 +265,16 @@ export async function procesarSiguiente(
   } catch (error) {
     console.error("[carnets] Falló un envío del lote", error);
     if (clasificarMailError(error) === "global") {
-      await cerrar("pendiente");
+      const interno = !pareceErrorDeCorreo(error);
+      // El mismo item ya pausó el lote por un fallo interno: es ese carnet, no el servicio.
+      if (interno && item.motivoError === MARCA_PAUSA_INTERNA) {
+        await cerrar("error", MOTIVO_NO_CARNET);
+        return "error";
+      }
+      await prisma.envioCarnetItem.update({
+        where: { id: item.id },
+        data: { estado: "pendiente", motivoError: interno ? MARCA_PAUSA_INTERNA : null },
+      });
       await prisma.envioCarnets.updateMany({
         where: { id: envio.id, estado: "en-curso" },
         data: { estado: "pausado", motivoPausa: describeMailError(error) },
@@ -267,6 +282,20 @@ export async function procesarSiguiente(
       return "pausado";
     }
     await cerrar("error", describeMailError(error));
+    // Una racha de rechazos suele ser cuota o credenciales: pausar en vez de marcar todo el lote.
+    const ultimos = await prisma.envioCarnetItem.findMany({
+      where: { envioId: envio.id, estado: { in: ["enviado", "error"] } },
+      orderBy: { intentadoEn: "desc" },
+      take: ERRORES_SEGUIDOS_PARA_PAUSAR,
+      select: { estado: true },
+    });
+    if (ultimos.length === ERRORES_SEGUIDOS_PARA_PAUSAR && ultimos.every((u) => u.estado === "error")) {
+      await prisma.envioCarnets.updateMany({
+        where: { id: envio.id, estado: "en-curso" },
+        data: { estado: "pausado", motivoPausa: MOTIVO_PAUSA_SEGUIDOS },
+      });
+      return "pausado";
+    }
     return "error";
   }
 }

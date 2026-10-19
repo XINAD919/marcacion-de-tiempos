@@ -10,6 +10,7 @@ import { Controles } from "./controles";
 
 export const metadata: Metadata = { title: "Envío de carnets" };
 
+const MAX_ERRORES = 100;
 const numero = new Intl.NumberFormat("es-CO");
 
 function Cifra({ label, value }: { label: string; value: number }) {
@@ -112,7 +113,7 @@ export default async function EnvioCarnetsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {envio.erroresDetalle.map((fila) => (
+                  {envio.erroresDetalle.slice(0, MAX_ERRORES).map((fila) => (
                     <TableRow key={fila.userId}>
                       <TableCell className="font-semibold">{fila.nombre}</TableCell>
                       <TableCell>{fila.email ?? "—"}</TableCell>
@@ -130,6 +131,11 @@ export default async function EnvioCarnetsPage() {
                 </TableBody>
               </Table>
             </div>
+            {envio.erroresDetalle.length > MAX_ERRORES && (
+              <p className="text-sm text-muted-foreground tabular-nums">
+                Mostrando {MAX_ERRORES} de {numero.format(envio.erroresDetalle.length)} errores
+              </p>
+            )}
           </section>
         )}
       </div>

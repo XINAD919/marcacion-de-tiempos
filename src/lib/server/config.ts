@@ -19,7 +19,7 @@ export async function getConfig(): Promise<ConfigValues> {
       : DEFAULT_CONFIG.exigenciaReconocimiento,
     intentosAntesQr: row.intentosAntesQr,
     jornadaMaximaHoras: row.jornadaMaximaHoras,
-    carnetsPorHora: row.carnetsPorHora,
+    carnetsPorHora: Math.max(1, row.carnetsPorHora),
   };
 }
 
