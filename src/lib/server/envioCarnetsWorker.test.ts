@@ -30,7 +30,15 @@ describe("iniciarTrabajador", () => {
     iniciarTrabajador({ tickMs: 1000, paso });
     await vi.advanceTimersByTimeAsync(1000);
     expect(paso).toHaveBeenCalledTimes(1);
-    expect(recuperar).toHaveBeenCalledTimes(1);
+  });
+
+  it("arrancar no consulta la base: la recuperación va dentro de cada paso, que tolera errores", async () => {
+    // Al levantar `next dev`, SQL Server tarda unos segundos en aceptar conexiones.
+    const paso = vi.fn(async () => "sin-envio" as const);
+    detener = iniciarTrabajador({ tickMs: 1000, paso });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(recuperar).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it("no solapa un paso lento con el siguiente tick", async () => {

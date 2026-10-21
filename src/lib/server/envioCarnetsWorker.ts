@@ -1,4 +1,4 @@
-import { type ResultadoPaso, procesarSiguiente, recuperarAlArrancar } from "./envioCarnetsService";
+import { type ResultadoPaso, procesarSiguiente } from "./envioCarnetsService";
 
 // En desarrollo el HMR puede volver a ejecutar register(): la guarda vive en
 // globalThis para sobrevivir a la recarga del módulo.
@@ -17,8 +17,8 @@ export function iniciarTrabajador(opts: { tickMs?: number; paso?: () => Promise<
   const tickMs = opts.tickMs ?? 5_000;
   const paso = opts.paso ?? (() => procesarSiguiente());
   let enCurso = false;
-
-  recuperarAlArrancar().catch((error) => console.error("[carnets] No se pudo recuperar el envío pendiente", error));
+  // Sin consulta al arrancar: la base puede no estar lista todavía. Cada paso ya
+  // recupera los items trabados (`procesarSiguiente`) y sus errores no detienen el bucle.
 
   const timer = setInterval(async () => {
     if (enCurso) return;

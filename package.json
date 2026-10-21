@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "docker compose up -d && pnpm exec next dev --experimental-https",
+    "dev": "docker compose up -d --wait && pnpm exec next dev --experimental-https",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

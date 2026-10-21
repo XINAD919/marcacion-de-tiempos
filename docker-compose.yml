@@ -8,6 +8,18 @@ services:
       - "1433:1433"
     volumes:
       - mssql-data:/var/opt/mssql
+    # Sano solo cuando acepta conexiones y todas las bases terminaron su recuperación:
+    # `pnpm dev` espera esto (`--wait`) antes de levantar Next.js.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -b -Q
+          "SET NOCOUNT ON; IF EXISTS (SELECT 1 FROM sys.databases WHERE state_desc <> 'ONLINE') RAISERROR('recuperando', 16, 1)"
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
 
 volumes:
   mssql-data:
